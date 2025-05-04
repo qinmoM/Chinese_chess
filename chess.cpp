@@ -15,7 +15,7 @@
 #define FONT 36//棋子字体大小
 #define TAB_W 400//选项卡宽
 #define TAB_H 90//选项卡高
-#define TURN 50//数组最大步数
+#define TURN 100//数组最大步数
 
 struct Chess
 {
@@ -41,7 +41,7 @@ bool rouend = 1;//记录对局是否结束
 short during = 0;//鼠标判断逻辑,0主界面,1游戏中,2查看历史
 short turn = 1;//记录回合数的变量
 
-const wchar_t*   redlist[7] = { L"車", L"馬", L"相", L"仕", L"帅", L"炮", L"兵" };//红棋名称
+const wchar_t* redlist[7] = { L"車", L"馬", L"相", L"仕", L"帅", L"炮", L"兵" };//红棋名称
 const wchar_t* blacklist[7] = { L"車", L"馬", L"象", L"士", L"将", L"炮", L"卒" };//黑棋名称
 const wchar_t* tab[4] = { L"新游戏", L"继续游戏", L"历史战绩", L"退出" };//选项卡名称
 
@@ -203,18 +203,20 @@ void PiecesDraw()//画棋子
 	{
 		for (int j = 0; j < COL; j++)
 		{
-			if (map[i][j].sur)
+			if (map_turn[turn][i][j].sur)
 			{
-				fillcircle(map[i][j].x, map[i][j].y, ROU);//棋子的背景
-				if (map[i][j].type)
+				fillcircle(SIZE * (j + 1), SIZE * (i + 1), ROU);//棋子的背景
+				if (map_turn[turn][i][j].type)
 				{
 					settextcolor(RED);//字体颜色设置
-					outtextxy(map[i][j].x - FONT / 2, map[i][j].y - FONT / 2, map[i][j].name);//棋子的字
+					outtextxy(SIZE * (j + 1) - FONT / 2,
+						SIZE * (i + 1) - FONT / 2, map_turn[turn][i][j].name);//棋子的字
 				}
 				else
 				{
 					settextcolor(BLACK);//字体颜色设置
-					outtextxy(map[i][j].x - FONT / 2, map[i][j].y - FONT / 2, map[i][j].name);//棋子的字
+					outtextxy(SIZE * (j + 1) - FONT / 2,
+						SIZE * (i + 1) - FONT / 2, map_turn[turn][i][j].name);//棋子的字
 				}
 			}
 		}
@@ -239,14 +241,14 @@ bool decide(short* Begin, short* End)//判断两点是否与类型匹配
 {
 	int i = 0;
 	short by = Begin[0], bx = Begin[1], ey = End[0], ex = End[1];
-	if (!wcscmp(map[by][bx].name, L"車"))
+	if (!wcscmp(map_turn[turn][by][bx].name, L"車"))
 	{
 		if (bx == ex && !(by == ey && bx == ex))//先判断是否在竖直方向并且不在原点
 		{
 			for (by > ey ? i = 1 : i = -1; by > ey ? i < by - ey : i > by - ey;
 				by > ey ? i++ : i--)//判断是否两点间是否有阻挡
 			{
-				if (map[by - i][bx].sur)
+				if (map_turn[turn][by - i][bx].sur)
 				{
 					return 0;
 				}
@@ -258,7 +260,7 @@ bool decide(short* Begin, short* End)//判断两点是否与类型匹配
 			for (bx > ex ? i = 1 : i = -1; bx > ex ? i < bx - ex : i > bx - ex;
 				bx > ex ? i++ : i--)//判断是否两点间是否有阻挡
 			{
-				if (map[by][bx - i].sur)
+				if (map_turn[turn][by][bx - i].sur)
 				{
 					return 0;
 				}
@@ -267,7 +269,7 @@ bool decide(short* Begin, short* End)//判断两点是否与类型匹配
 		}
 		return 0;
 	}
-	else if (!wcscmp(map[by][bx].name, L"馬"))
+	else if (!wcscmp(map_turn[turn][by][bx].name, L"馬"))
 	{
 		if (ex < 0 || ex > 8 || ey < 0 || ey > 9)//判断范围
 		{
@@ -275,37 +277,37 @@ bool decide(short* Begin, short* End)//判断两点是否与类型匹配
 		}
 		if (ex == bx - 2 && (ey == by - 1 || ey == by + 1))//分别判断行棋是否为日字:判断左
 		{
-			if (!map[by][bx - 1].sur)//判断是否没有阻挡
+			if (!map_turn[turn][by][bx - 1].sur)//判断是否没有阻挡
 			{
 				return 1;
 			}
 		}
 		else if (ex == bx + 2 && (ey == by - 1 || ey == by + 1))//分别判断行棋是否为日字:判断右
 		{
-			if (!map[by][bx + 1].sur)//判断是否没有阻挡
+			if (!map_turn[turn][by][bx + 1].sur)//判断是否没有阻挡
 			{
 				return 1;
 			}
 		}
 		else if (ey == by - 2 && (ex == bx - 1 || ex == bx + 1))//分别判断行棋是否为日字:判断上
 		{
-			if (!map[by - 1][bx].sur)//判断是否没有阻挡
+			if (!map_turn[turn][by - 1][bx].sur)//判断是否没有阻挡
 			{
 				return 1;
 			}
 		}
 		else if (ey == by + 2 && (ex == bx - 1 || ex == bx + 1))//分别判断行棋是否为日字:判断下
 		{
-			if (!map[by + 1][bx].sur)//判断是否没有阻挡
+			if (!map_turn[turn][by + 1][bx].sur)//判断是否没有阻挡
 			{
 				return 1;
 			}
 		}
 		return 0;
 	}
-	else if (!wcscmp(map[by][bx].name, L"炮"))
+	else if (!wcscmp(map_turn[turn][by][bx].name, L"炮"))
 	{
-		if (map[ey][ex].sur)//判断是否吃子
+		if (map_turn[turn][ey][ex].sur)//判断是否吃子
 		{
 			int j = 0;
 			if (bx == ex && !(by == ey && bx == ex))//先判断是否在竖直方向并且不在原点
@@ -313,7 +315,7 @@ bool decide(short* Begin, short* End)//判断两点是否与类型匹配
 				for (by > ey ? i = 1 : i = -1; by > ey ? i < by - ey : i > by - ey;
 					by > ey ? i++ : i--)//判断是否两点间是否有多少阻挡
 				{
-					if (map[by - i][bx].sur)
+					if (map_turn[turn][by - i][bx].sur)
 					{
 						j++;
 					}
@@ -328,7 +330,7 @@ bool decide(short* Begin, short* End)//判断两点是否与类型匹配
 				for (bx > ex ? i = 1 : i = -1; bx > ex ? i < bx - ex : i > bx - ex;
 					bx > ex ? i++ : i--)//判断是否两点间是否有多少阻挡
 				{
-					if (map[by][bx - i].sur)
+					if (map_turn[turn][by][bx - i].sur)
 					{
 						j++;
 					}
@@ -347,7 +349,7 @@ bool decide(short* Begin, short* End)//判断两点是否与类型匹配
 				for (by > ey ? i = 1 : i = -1; by > ey ? i < by - ey : i > by - ey;
 					by > ey ? i++ : i--)//判断是否两点间是否有阻挡
 				{
-					if (map[by - i][bx].sur)
+					if (map_turn[turn][by - i][bx].sur)
 					{
 						return 0;
 					}
@@ -359,7 +361,7 @@ bool decide(short* Begin, short* End)//判断两点是否与类型匹配
 				for (bx > ex ? i = 1 : i = -1; bx > ex ? i < bx - ex : i > bx - ex;
 					bx > ex ? i++ : i--)//判断是否两点间是否有阻挡
 				{
-					if (map[by][bx - i].sur)
+					if (map_turn[turn][by][bx - i].sur)
 					{
 						return 0;
 					}
@@ -369,7 +371,7 @@ bool decide(short* Begin, short* End)//判断两点是否与类型匹配
 			return 0;
 		}
 	}
-	else if (!wcscmp(map[by][bx].name, L"相"))
+	else if (!wcscmp(map_turn[turn][by][bx].name, L"相"))
 	{
 		if ((ex < 0 || ex > 8) && (ey < 5 || ey > 9))//判断落棋位置是否不在本领土内
 		{
@@ -381,7 +383,7 @@ bool decide(short* Begin, short* End)//判断两点是否与类型匹配
 		}
 		if ((2 == by - ey || -2 == by - ey) && (2 == bx - ex || -2 == bx - ex))//判断两点是否为隔着一格的斜角
 		{
-			if (map[by > ey ? by - ey : ey - by][by > ey ? by - ey : ey - by].sur)//判断是否两点之间是否有棋子
+			if (map_turn[turn][by > ey ? by - ey : ey - by][by > ey ? by - ey : ey - by].sur)//判断是否两点之间是否有棋子
 			{
 				return 0;
 			}
@@ -392,7 +394,7 @@ bool decide(short* Begin, short* End)//判断两点是否与类型匹配
 		}
 		return 0;
 	}
-	else if (!wcscmp(map[by][bx].name, L"象"))
+	else if (!wcscmp(map_turn[turn][by][bx].name, L"象"))
 	{
 		if ((ex < 0 || ex > 8) && (ey < 0 || ey > 4))//判断落棋位置是否不在本领土内
 		{
@@ -404,7 +406,7 @@ bool decide(short* Begin, short* End)//判断两点是否与类型匹配
 		}
 		if ((2 == by - ey || -2 == by - ey) && (2 == bx - ex || -2 == bx - ex))//判断两点是否为隔着一格的斜角
 		{
-			if (map[by > ey ? by - ey : ey - by][by > ey ? by - ey : ey - by].sur)//判断是否两点之间是否有棋子
+			if (map_turn[turn][by > ey ? by - ey : ey - by][by > ey ? by - ey : ey - by].sur)//判断是否两点之间是否有棋子
 			{
 				return 0;
 			}
@@ -415,7 +417,7 @@ bool decide(short* Begin, short* End)//判断两点是否与类型匹配
 		}
 		return 0;
 	}
-	else if (!wcscmp(map[by][bx].name, L"仕"))
+	else if (!wcscmp(map_turn[turn][by][bx].name, L"仕"))
 	{
 		if ((ex < 3 || ex > 5) && (ey < 7 || ey > 9) && ex + ey != 11 &&
 			ex + ey != 13)//判断落棋位置是否不在九宫格的特定位置内
@@ -428,7 +430,7 @@ bool decide(short* Begin, short* End)//判断两点是否与类型匹配
 		}
 		return 0;
 	}
-	else if (!wcscmp(map[by][bx].name, L"士"))
+	else if (!wcscmp(map_turn[turn][by][bx].name, L"士"))
 	{
 		if ((ex < 3 || ex > 5) && (ey < 0 || ey > 2) && ex + ey != 4 &&
 			ex + ey != 6)//判断落棋位置是否不在九宫格的特定位置内
@@ -441,9 +443,9 @@ bool decide(short* Begin, short* End)//判断两点是否与类型匹配
 		}
 		return 0;
 	}
-	else if (!wcscmp(map[by][bx].name, L"兵"))
+	else if (!wcscmp(map_turn[turn][by][bx].name, L"兵"))
 	{
-		if (map[by][bx].riv)//判断是否过河
+		if (map_turn[turn][by][bx].riv)//判断是否过河
 		{
 			if (-1 == ey - by && ex == bx)//判断是否为前一格并且没有左右移动
 			{
@@ -463,9 +465,9 @@ bool decide(short* Begin, short* End)//判断两点是否与类型匹配
 		}
 		return 0;
 	}
-	else if (!wcscmp(map[by][bx].name, L"卒"))
+	else if (!wcscmp(map_turn[turn][by][bx].name, L"卒"))
 	{
-		if (map[by][bx].riv)//判断是否过河
+		if (map_turn[turn][by][bx].riv)//判断是否过河
 		{
 			if (1 == ey - by && ex == bx)//判断是否为前一格并且没有左右移动
 			{
@@ -485,7 +487,7 @@ bool decide(short* Begin, short* End)//判断两点是否与类型匹配
 		}
 		return 0;
 	}
-	else if (!wcscmp(map[by][bx].name, L"帅"))
+	else if (!wcscmp(map_turn[turn][by][bx].name, L"帅"))
 	{
 		if ((ex < 3 || ex > 5) && (ey < 7 || ey > 9))//判断落棋位置是否不在九宫格内
 		{
@@ -498,7 +500,7 @@ bool decide(short* Begin, short* End)//判断两点是否与类型匹配
 		}
 		return 0;
 	}
-	else if (!wcscmp(map[by][bx].name, L"将"))
+	else if (!wcscmp(map_turn[turn][by][bx].name, L"将"))
 	{
 		if ((ex < 3 || ex > 5) && (ey < 0 || ey > 7))//判断落棋位置是否不在九宫格内
 		{
@@ -586,12 +588,12 @@ void GameControl()//鼠标信息控制局内消息
 				else if (msg.x > (getwidth() - TAB_W) / 2 && msg.x < (getwidth() + TAB_W) / 2
 					&& msg.y > 4 * getheight() / 11 && msg.y < 4 * getheight() / 11 + TAB_H)
 				{
-					
+
 				}
 				else if (msg.x > (getwidth() - TAB_W) / 2 && msg.x < (getwidth() + TAB_W) / 2
 					&& msg.y > 6 * getheight() / 11 && msg.y < 6 * getheight() / 11 + TAB_H)
 				{
-					
+
 				}
 				else if (msg.x > (getwidth() - TAB_W) / 2 && msg.x < (getwidth() + TAB_W) / 2
 					&& msg.y > 8 * getheight() / 11 && msg.y < 8 * getheight() / 11 + TAB_H)
@@ -615,9 +617,9 @@ void GameControl()//鼠标信息控制局内消息
 					{
 						if (-1 == Begin[0])//判断上一步是否没有选中棋子
 						{
-							if (map[i][j].sur && judge(msg.x, msg.y, i, j))//对存活的棋子判断点是否在他的范围
+							if (map_turn[turn][i][j].sur && judge(msg.x, msg.y, i, j))//对存活的棋子判断点是否在他的范围
 							{
-								if (map[i][j].sur && routype == map[i][j].type)//判断行棋是否为对应回合方
+								if (map_turn[turn][i][j].sur && routype == map_turn[turn][i][j].type)//判断行棋是否为对应回合方
 								{
 									Begin[0] = i, Begin[1] = j;//储存前棋子的信息
 								}
@@ -627,7 +629,8 @@ void GameControl()//鼠标信息控制局内消息
 						{
 							if (judge(msg.x, msg.y, i, j))//判断是否选中了落棋位置
 							{
-								if (map[i][j].sur && map[i][j].type == routype)//判断位置是否为友军
+								if (map_turn[turn][i][j].sur && map_turn[turn][i][j].type == routype)
+									//判断位置是否为友军
 								{
 									Begin[0] = i, Begin[1] = j;//切换前棋子的信息
 									printf("xsb");
@@ -639,7 +642,15 @@ void GameControl()//鼠标信息控制局内消息
 									if (decide(Begin, End))//判断位置是否合理!!!!!!!!!!!!!(并且老将是否被将军)
 									{
 										printf(" %d%d->%d%d ", Begin[0], Begin[1], End[0], End[1]);//调试使用
-
+										
+										map_turn[turn][End[0]][End[1]] = map_turn[turn][Begin[0]][Begin[1]];
+											//初始位置的棋子复制到末位置
+										map_turn[turn][Begin[0]][Begin[1]].exist = 0;
+										wcscpy(map_turn[turn][Begin[0]][Begin[1]].name, L" ");
+										map_turn[turn][Begin[0]][Begin[1]].sur = 0;
+										map_turn[turn][Begin[0]][Begin[1]].type = 0;//原始位置标为无棋子
+										BoardDraw();//画棋盘
+										PiecesDraw();//画棋子
 										GameUpdate(turn++);//当前棋子信息写到下一回合,为其行动做准备,并且回合加一
 										routype = !routype;//行动完成交换红黑的回合
 										Begin[0] = -1;//变为未选中棋子模式
