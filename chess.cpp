@@ -9,13 +9,16 @@
 #define ROW 10//行
 #define COL 9//列
 #define RIVER L"楚河        汉界"//方便后续打印
-#define LCOLOR RGB(250, 235, 195)//亮色
+#define DCOLOR RGB(180, 145, 105)//暗色
+#define BCOLOR RGB(250, 235, 195)//亮色
 #define COLOR RGB(225, 190, 150)//整体颜色
 #define ROU 30//棋子半径大小
 #define FONT 36//棋子字体大小
 #define TAB_W 400//选项卡宽
 #define TAB_H 90//选项卡高
 #define TURN 100//数组最大步数
+#define KEY 70//功能键大小
+#define KEY_E 30//功能键露出区域大小
 
 struct Chess
 {
@@ -40,6 +43,7 @@ bool routype = 1;//记录回合是红方还是黑方
 bool rouend = 1;//记录对局是否结束
 short during = 0;//鼠标判断逻辑,0主界面,1游戏中,2查看历史
 short turn = 1;//记录回合数的变量
+short Judge = 1;//记录对局是否没有结束
 
 const wchar_t* redlist[7] = { L"車", L"馬", L"相", L"仕", L"帅", L"炮", L"兵" };//红棋名称
 const wchar_t* blacklist[7] = { L"車", L"馬", L"象", L"士", L"将", L"炮", L"卒" };//黑棋名称
@@ -195,6 +199,14 @@ void BoardDraw()//画棋盘
 	outtextxy((getwidth() - textwidth(RIVER)) / 2,
 		(getheight() - textheight(RIVER)) / 2, RIVER);//棋盘中间加上楚河汉界
 	settextstyle(FONT, 0, L"楷体");//用于棋子的字体设置
+	setfillcolor(DCOLOR);//设置填充颜色
+	solidroundrect((getwidth() - KEY) / 2, KEY_E - KEY, (getwidth() + KEY) / 2, KEY_E, 10, 10);//画出功能键
+	setfillcolor(COLOR);//恢复填充颜色
+	setlinestyle(PS_SOLID, 6);//设置线条效果
+	setlinecolor(RGB(200, 175, 145));//设置线条颜色
+	line((getwidth() - KEY) / 2 + 16, KEY_E / 2, (getwidth() + KEY) / 2 - 16, KEY_E / 2);//画出功能键的内饰
+	setlinestyle(PS_SOLID, 2);//恢复线条效果
+	setlinecolor(BLACK);//恢复线条颜色
 }
 
 void PiecesDraw()//画棋子
@@ -383,7 +395,8 @@ bool decide(short* Begin, short* End)//判断两点是否与类型匹配
 		}
 		if ((2 == by - ey || -2 == by - ey) && (2 == bx - ex || -2 == bx - ex))//判断两点是否为隔着一格的斜角
 		{
-			if (map_turn[turn][by > ey ? by - ey : ey - by][by > ey ? by - ey : ey - by].sur)//判断是否两点之间是否有棋子
+			if (map_turn[turn][by > ey ? by - ey : ey - by][by > ey ? by - ey : ey - by].sur)
+				//判断是否两点之间是否有棋子
 			{
 				return 0;
 			}
@@ -406,7 +419,7 @@ bool decide(short* Begin, short* End)//判断两点是否与类型匹配
 		}
 		if ((2 == by - ey || -2 == by - ey) && (2 == bx - ex || -2 == bx - ex))//判断两点是否为隔着一格的斜角
 		{
-			if (map_turn[turn][by > ey ? by - ey : ey - by][by > ey ? by - ey : ey - by].sur)//判断是否两点之间是否有棋子
+			if (map_turn[turn][(by + ey) / 2][(by + ey) / 2].sur)//判断是否两点之间是否有棋子
 			{
 				return 0;
 			}
@@ -460,6 +473,10 @@ bool decide(short* Begin, short* End)//判断两点是否与类型匹配
 		{
 			if (-1 == ey - by && ex == bx)//判断是否为前一格并且没有左右移动
 			{
+				if (4 == ey)//判断位置是否过河
+				{
+					map_turn[turn][by][bx].riv = 1;//赋值为过河
+				}
 				return 1;
 			}
 		}
@@ -482,6 +499,11 @@ bool decide(short* Begin, short* End)//判断两点是否与类型匹配
 		{
 			if (1 == ey - by && ex == bx)//判断是否为前一格并且没有左右移动
 			{
+				if (5 == ey)//判断位置是否过河
+				{
+					map_turn[turn][by][bx].riv = 1;//赋值为过河
+				}
+				return 1;
 				return 1;
 			}
 		}
@@ -513,11 +535,70 @@ bool decide(short* Begin, short* End)//判断两点是否与类型匹配
 		}
 		return 0;
 	}
-	//else
-	//{
-	//	printf("decide函数出错了，未找到棋子的名称");
-	//	exit(1);
-	//}
+	else
+	{
+		printf("decide函数出错了，未找到棋子的名称");
+		exit(1);
+	}
+}
+
+void DarkBoardDraw()//画暗棋盘
+{
+	int i = 0;
+	setbkcolor(DCOLOR);//设置背景颜色
+	cleardevice();//刷新背景
+	for (i = 0; i < ROW; i++)//画横线
+	{
+		line(SIZE, (i + 1) * SIZE, getwidth() - SIZE, (i + 1) * SIZE);
+	}
+	for (i = 0; i < COL; i++)//画竖线
+	{
+		line((i + 1) * SIZE, SIZE, (i + 1) * SIZE, getheight() - SIZE);
+	}
+	rectangle(SIZE - 5, SIZE - 5, getwidth() - SIZE + 5, getheight() - SIZE + 5);//画外边框
+	setfillcolor(DCOLOR);//设置填充颜色
+	fillrectangle(SIZE, (ROW / 2) * SIZE, getwidth() - SIZE, (ROW / 2 + 1) * SIZE);//覆盖中间的竖线
+	line(4 * SIZE, SIZE, 6 * SIZE, 3 * SIZE);
+	line(4 * SIZE, 3 * SIZE, 6 * SIZE, SIZE);
+	line(4 * SIZE, 10 * SIZE, 6 * SIZE, 8 * SIZE);
+	line(4 * SIZE, 8 * SIZE, 6 * SIZE, 10 * SIZE);//以上四条画棋盘上的斜线
+	settextcolor(BLACK);//字体颜色设置
+	settextstyle(50, 0, L"楷体");//用于楚河汉界的字体设置
+	outtextxy((getwidth() - textwidth(RIVER)) / 2,
+		(getheight() - textheight(RIVER)) / 2, RIVER);//棋盘中间加上楚河汉界
+	settextstyle(FONT, 0, L"楷体");//用于棋子的字体设置
+	setfillcolor(COLOR);//恢复填充颜色
+	setbkcolor(COLOR);//恢复背景颜色
+}
+
+void DarkPiecesDraw()//画棋子
+{
+	setbkcolor(DCOLOR);//设置背景颜色
+	setfillcolor(DCOLOR);//设置填充颜色
+	for (int i = 0; i < ROW; i++)
+	{
+		for (int j = 0; j < COL; j++)
+		{
+			if (map_turn[turn][i][j].sur)
+			{
+				fillcircle(SIZE * (j + 1), SIZE * (i + 1), ROU);//棋子的背景
+				if (map_turn[turn][i][j].type)
+				{
+					settextcolor(RGB(120, 0, 0));//字体颜色设置
+					outtextxy(SIZE * (j + 1) - FONT / 2,
+						SIZE * (i + 1) - FONT / 2, map_turn[turn][i][j].name);//棋子的字
+				}
+				else
+				{
+					settextcolor(BLACK);//字体颜色设置
+					outtextxy(SIZE * (j + 1) - FONT / 2,
+						SIZE * (i + 1) - FONT / 2, map_turn[turn][i][j].name);//棋子的字
+				}
+			}
+		}
+	}
+	setbkcolor(COLOR);//恢复背景颜色
+	setfillcolor(COLOR);//恢复填充颜色
 }
 
 void GameControl()//鼠标信息控制局内消息
@@ -535,7 +616,7 @@ void GameControl()//鼠标信息控制局内消息
 				if (msg.x > (getwidth() - TAB_W) / 2 && msg.x < (getwidth() + TAB_W) / 2
 					&& msg.y > 2 * getheight() / 11 && msg.y < 2 * getheight() / 11 + TAB_H)
 				{
-					setlinecolor(LCOLOR);//使选项卡线条颜色变亮
+					setlinecolor(BCOLOR);//使选项卡线条颜色变亮
 					roundrect((getwidth() - TAB_W) / 2, getheight() * 2 / 11,
 						(getwidth() + TAB_W) / 2, getheight() * 2 / 11 + TAB_H, 30, 60);//画出选项卡边框
 					setlinecolor(BLACK);//恢复选项卡线条颜色
@@ -543,7 +624,7 @@ void GameControl()//鼠标信息控制局内消息
 				if (msg.x > (getwidth() - TAB_W) / 2 && msg.x < (getwidth() + TAB_W) / 2
 					&& msg.y > 4 * getheight() / 11 && msg.y < 4 * getheight() / 11 + TAB_H)
 				{
-					setlinecolor(LCOLOR);//使选项卡线条颜色变亮
+					setlinecolor(BCOLOR);//使选项卡线条颜色变亮
 					roundrect((getwidth() - TAB_W) / 2, getheight() * 2 * 2 / 11,
 						(getwidth() + TAB_W) / 2, getheight() * 2 * 2 / 11 + TAB_H, 30, 60);//画出选项卡边框
 					setlinecolor(BLACK);//恢复选项卡线条颜色
@@ -551,7 +632,7 @@ void GameControl()//鼠标信息控制局内消息
 				if (msg.x > (getwidth() - TAB_W) / 2 && msg.x < (getwidth() + TAB_W) / 2
 					&& msg.y > 6 * getheight() / 11 && msg.y < 6 * getheight() / 11 + TAB_H)
 				{
-					setlinecolor(LCOLOR);//使选项卡线条颜色变亮
+					setlinecolor(BCOLOR);//使选项卡线条颜色变亮
 					roundrect((getwidth() - TAB_W) / 2, getheight() * 3 * 2 / 11,
 						(getwidth() + TAB_W) / 2, getheight() * 3 * 2 / 11 + TAB_H, 30, 60);//画出选项卡边框
 					setlinecolor(BLACK);//恢复选项卡线条颜色
@@ -559,7 +640,7 @@ void GameControl()//鼠标信息控制局内消息
 				if (msg.x > (getwidth() - TAB_W) / 2 && msg.x < (getwidth() + TAB_W) / 2
 					&& msg.y > 8 * getheight() / 11 && msg.y < 8 * getheight() / 11 + TAB_H)
 				{
-					setlinecolor(LCOLOR);//使选项卡线条颜色变亮
+					setlinecolor(BCOLOR);//使选项卡线条颜色变亮
 					roundrect((getwidth() - TAB_W) / 2, getheight() * 4 * 2 / 11,
 						(getwidth() + TAB_W) / 2, getheight() * 4 * 2 / 11 + TAB_H, 30, 60);//画出选项卡边框
 					setlinecolor(BLACK);//恢复选项卡线条颜色
@@ -611,15 +692,23 @@ void GameControl()//鼠标信息控制局内消息
 				}
 				break;
 			case 1:
-				for (i = 0; i < ROW; i++)//遍历数组
+				if (msg.x <= (getwidth() + KEY) / 2 && msg.x >= (getwidth() - KEY) / 2 &&
+					msg.y <= KEY_E && msg.y >= 0)//功能键位置
+				{
+					DarkBoardDraw();
+					DarkPiecesDraw();
+				}
+				for (i = 0; i < ROW; i++)//遍历数组,棋子位置
 				{
 					for (j = 0; j < COL; j++)
 					{
 						if (-1 == Begin[0])//判断上一步是否没有选中棋子
 						{
-							if (map_turn[turn][i][j].sur && judge(msg.x, msg.y, i, j))//对存活的棋子判断点是否在他的范围
+							if (map_turn[turn][i][j].sur && judge(msg.x, msg.y, i, j))
+								//对存活的棋子判断点是否在他的范围
 							{
-								if (map_turn[turn][i][j].sur && routype == map_turn[turn][i][j].type)//判断行棋是否为对应回合方
+								if (map_turn[turn][i][j].sur && routype == map_turn[turn][i][j].type)
+									//判断行棋是否为对应回合方
 								{
 									Begin[0] = i, Begin[1] = j;//储存前棋子的信息
 								}
@@ -642,9 +731,9 @@ void GameControl()//鼠标信息控制局内消息
 									if (decide(Begin, End))//判断位置是否合理!!!!!!!!!!!!!(并且老将是否被将军)
 									{
 										printf(" %d%d->%d%d ", Begin[0], Begin[1], End[0], End[1]);//调试使用
-										
+
 										map_turn[turn][End[0]][End[1]] = map_turn[turn][Begin[0]][Begin[1]];
-											//初始位置的棋子复制到末位置
+										//初始位置的棋子复制到末位置
 										map_turn[turn][Begin[0]][Begin[1]].exist = 0;
 										wcscpy(map_turn[turn][Begin[0]][Begin[1]].name, L" ");
 										map_turn[turn][Begin[0]][Begin[1]].sur = 0;
@@ -689,9 +778,10 @@ int main()
 	}
 	GameUpdate(0);//初始化第一轮
 	MainMenu();//画主菜单
-	while (1)//主循环
+	while (Judge)//主循环
 	{
 		GameControl();//鼠标信息控制
 	}
+
 	return 0;
 }
