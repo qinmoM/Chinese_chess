@@ -31,13 +31,12 @@ struct Chess
 	bool exist;//是否有棋子
 }map[ROW][COL];
 
-struct Chess map_turn[TURN][ROW][COL] = { 0 };
+struct Chess map_turn[TURN][ROW][COL] = { 0 };//记录全部历史
+struct Chess map_test[ROW][COL] = { 0 };//测试移动后是否被将军的
 
 MOUSEMSG msg;
 
-POINT begin = { -1, -1 }, end = { -1, -1 };
-
-short Begin[] = { -1, -1 }, End[] = { -1, -1 };
+short Begin[] = { -1, -1 }, End[] = { -1, -1 };//记录起始和初始位置
 
 bool routype = 1;//记录回合是红方还是黑方
 bool rouend = 1;//记录对局是否结束
@@ -162,6 +161,7 @@ void GameUpdate(int t)//把改变后的t组写到t + 1组
 
 void MainMenu()//画主菜单
 {
+	BeginBatchDraw();//防止闪烁
 	cleardevice();//刷新背景
 	for (int i = 0; i < 4; i++)//绘制选项卡
 	{
@@ -176,6 +176,7 @@ void MainMenu()//画主菜单
 			getheight() * (i + 1) * 2 / 11 + (TAB_H - textheight(tab[i])) / 2, tab[i]);
 	}
 	settextstyle(FONT, 0, L"楷体");
+	EndBatchDraw();//关闭双缓冲绘图
 }
 
 void BoardDraw()//画棋盘
@@ -668,6 +669,319 @@ void FunctionKey()
 	settextstyle(FONT, 0, L"楷体");//恢复字体
 }
 
+bool Check()//检测己方老将是否被将军,被将军返回0
+{
+	int i = 0, j = 0, u = 0, t = 0, m = 0, n = 0;
+	if (routype)//区分红黑方
+	{
+		for (i = 0; i < ROW; i++)//检测红帅的位置
+		{
+			for (j = 0; j < COL; j++)
+			{
+				if (!wcscmp(map_test[i][j].name, L"帅"))
+				{
+					u = i, t = j;
+				}
+			}
+		}
+		for (i = 0; i < ROW; i++)//检测黑方所有棋子
+		{
+			for (j = 0; j < COL; j++)
+			{
+				if (map_test[i][j].sur && !map_test[i][j].type)//检测是否为黑方棋子
+				{
+					if (!wcscmp(map_test[i][j].name, L"車"))
+					{
+						n = 0;
+						if (i == u)//检测是否和帅是同一排
+						{
+							for (j > t ? m = 1 : m = -1; j > t ? m < j - t : m > j - t;
+								j > u ? m++ : m--)//判断是否两点间是否有阻挡
+							{
+								if (map_test[i][j - m].sur)
+								{
+									n++;
+								}
+							}
+						}
+						else if (j == t)//检测是否和帅是同一列
+						{
+							for (i > u ? m = 1 : m = -1; i > u ? m < i - u : m > i - u;
+								i > u ? m++ : m--)//判断是否两点间是否有阻挡
+							{
+								if (map_test[i - m][j].sur)
+								{
+									n++;
+								}
+							}
+						}
+						else
+						{
+							n = 1;
+						}
+						if (!n)
+						{
+							return 0;
+						}
+					}
+					else if (!wcscmp(map_test[i][j].name, L"馬"))
+					{
+						if (t == j - 2 && (u == i - 1 || u == i + 1))//判断行棋是否为日字:判断左
+						{
+							if (!map_test[i][j - 1].sur)//判断是否没有阻挡
+							{
+								return 0;
+							}
+						}
+						else if (t == j + 2 && (u == i - 1 || u == i + 1))//判断行棋是否为日字:判断右
+						{
+							if (!map_test[i][j + 1].sur)//判断是否没有阻挡
+							{
+								return 0;
+							}
+						}
+						else if (u == i - 2 && (t == j - 1 || t == j + 1))//判断行棋是否为日字:判断上
+						{
+							if (!map_test[i - 1][j].sur)//判断是否没有阻挡
+							{
+								return 0;
+							}
+						}
+						else if (u == i + 2 && (t == j - 1 || t == j + 1))//判断行棋是否为日字:判断下
+						{
+							if (!map_test[i + 1][j].sur)//判断是否没有阻挡
+							{
+								return 0;
+							}
+						}
+					}
+					else if (!wcscmp(map_test[i][j].name, L"炮"))
+					{
+						n = 0;
+						if (i == u)//检测是否和帅是同一排
+						{
+							for (j > t ? m = 1 : m = -1; j > t ? m < j - t : m > j - t;
+								j > u ? m++ : m--)//判断是否两点间有多少阻挡
+							{
+								if (map_test[i][j - m].sur)
+								{
+									n++;
+								}
+							}
+						}
+						else if (j == t)//检测是否和帅是同一列
+						{
+							for (i > u ? m = 1 : m = -1; i > u ? m < i - u : m > i - u;
+								i > u ? m++ : m--)//判断是否两点间有多少阻挡
+							{
+								if (map_test[i - m][j].sur)
+								{
+									n++;
+								}
+							}
+						}
+						if (1 == n)
+						{
+							return 0;
+						}
+					}
+					else if (!wcscmp(map_test[i][j].name, L"卒"))
+					{
+						if (i == u)//检测是否和帅是同一排
+						{
+							if (t == j - 1 || t == j + 1)
+							{
+								return 0;
+							}
+						}
+						else if (j == t)//检测是否和帅是同一列
+						{
+							if (u == i + 1)
+							{
+								return 0;
+							}
+						}
+					}
+					else if (!wcscmp(map_test[i][j].name, L"将"))
+					{
+						n = 0;
+						if (j == t)//检测是否和将是同一列
+						{
+							for (i > u ? m = 1 : m = -1; i > u ? m < i - u : m > i - u;
+								i > u ? m++ : m--)//判断是否两点间是否有阻挡
+							{
+								if (map_test[i - m][j].sur)
+								{
+									n++;
+								}
+							}
+							if (!n)
+							{
+								return 0;
+							}
+						}
+					}
+				}
+			}
+		}
+		return 1;
+	}
+	else
+	{
+		for (i = 0; i < ROW; i++)//检测黑将的位置
+		{
+			for (j = 0; j < COL; j++)
+			{
+				if (!wcscmp(map_test[i][j].name, L"将"))
+				{
+					u = i, t = j;
+				}
+			}
+		}
+		for (i = 0; i < ROW; i++)//检测红方所有棋子
+		{
+			for (j = 0; j < COL; j++)
+			{
+				if (map_test[i][j].sur && map_test[i][j].type)//检测是否为红方棋子
+				{
+					if (!wcscmp(map_test[i][j].name, L"車"))
+					{
+						n = 0;
+						if (i == u)//检测是否和将是同一排
+						{
+							for (j > t ? m = 1 : m = -1; j > t ? m < j - t : m > j - t;
+								j > u ? m++ : m--)//判断是否两点间是否有阻挡
+							{
+								if (map_test[i][j - m].sur)
+								{
+									n++;
+								}
+							}
+						}
+						else if (j == t)//检测是否和将是同一列
+						{
+							for (i > u ? m = 1 : m = -1; i > u ? m < i - u : m > i - u;
+								i > u ? m++ : m--)//判断是否两点间是否有阻挡
+							{
+								if (map_test[i - m][j].sur)
+								{
+									n++;
+								}
+							}
+						}
+						else
+						{
+							n = 1;
+						}
+						if (!n)
+						{
+							return 0;
+						}
+					}
+					else if (!wcscmp(map_test[i][j].name, L"馬"))
+					{
+						if (t == j - 2 && (u == i - 1 || u == i + 1))//判断行棋是否为日字:判断左
+						{
+							if (!map_test[i][j - 1].sur)//判断是否没有阻挡
+							{
+								return 0;
+							}
+						}
+						else if (t == j + 2 && (u == i - 1 || u == i + 1))//判断行棋是否为日字:判断右
+						{
+							if (!map_test[i][j + 1].sur)//判断是否没有阻挡
+							{
+								return 0;
+							}
+						}
+						else if (u == i - 2 && (t == j - 1 || t == j + 1))//判断行棋是否为日字:判断上
+						{
+							if (!map_test[i - 1][j].sur)//判断是否没有阻挡
+							{
+								return 0;
+							}
+						}
+						else if (u == i + 2 && (t == j - 1 || t == j + 1))//判断行棋是否为日字:判断下
+						{
+							if (!map_test[i + 1][j].sur)//判断是否没有阻挡
+							{
+								return 0;
+							}
+						}
+					}
+					else if (!wcscmp(map_test[i][j].name, L"炮"))
+					{
+						n = 0;
+						if (i == u)//检测是否和将是同一排
+						{
+							for (j > t ? m = 1 : m = -1; j > t ? m < j - t : m > j - t;
+								j > u ? m++ : m--)//判断是否两点间有多少阻挡
+							{
+								if (map_test[i][j - m].sur)
+								{
+									n++;
+								}
+							}
+						}
+						else if (j == t)//检测是否和将是同一列
+						{
+							for (i > u ? m = 1 : m = -1; i > u ? m < i - u : m > i - u;
+								i > u ? m++ : m--)//判断是否两点间有多少阻挡
+							{
+								if (map_test[i - m][j].sur)
+								{
+									n++;
+								}
+							}
+						}
+						if (1 == n)
+						{
+							return 0;
+						}
+					}
+					else if (!wcscmp(map_test[i][j].name, L"兵"))
+					{
+						if (i == u)//检测是否和将是同一排
+						{
+							if (t == j - 1 || t == j + 1)
+							{
+								return 0;
+							}
+						}
+						else if (j == t)//检测是否和将是同一列
+						{
+							if (u == i + 1)
+							{
+								return 0;
+							}
+						}
+					}
+					else if (!wcscmp(map_test[i][j].name, L"帅"))
+					{
+						n = 0;
+						if (j == t)//检测是否和帅是同一列
+						{
+							for (i > u ? m = 1 : m = -1; i > u ? m < i - u : m > i - u;
+								i > u ? m++ : m--)//判断是否两点间是否有阻挡
+							{
+								if (map_test[i - m][j].sur)
+								{
+									n++;
+								}
+							}
+							if (!n)
+							{
+								return 0;
+							}
+						}
+					}
+				}
+			}
+		}
+		return 1;
+	}
+}
+
 void GameControl()//鼠标信息控制局内消息
 {
 	int i = 0, j = 0;
@@ -733,14 +1047,23 @@ void GameControl()//鼠标信息控制局内消息
 				if (msg.x > (getwidth() - TAB_W) / 2 && msg.x < (getwidth() + TAB_W) / 2
 					&& msg.y > 2 * getheight() / 11 && msg.y < 2 * getheight() / 11 + TAB_H)
 				{
+					routype = 1;//切换红方
+					turn = 1;//重置历史记录
+					GameUpdate(0);//初始化第一轮
 					during = 1;//改变鼠标判断逻辑为局内
+					BeginBatchDraw();//防止闪烁
 					BoardDraw();//画棋盘
 					PiecesDraw();//画棋子
+					EndBatchDraw();//关闭双缓冲绘图
 				}
 				else if (msg.x > (getwidth() - TAB_W) / 2 && msg.x < (getwidth() + TAB_W) / 2
 					&& msg.y > 4 * getheight() / 11 && msg.y < 4 * getheight() / 11 + TAB_H)
 				{
-
+					during = 1;//改变鼠标判断逻辑为局内
+					BeginBatchDraw();//防止闪烁
+					BoardDraw();//画棋盘
+					PiecesDraw();//画棋子
+					EndBatchDraw();//关闭双缓冲绘图
 				}
 				else if (msg.x > (getwidth() - TAB_W) / 2 && msg.x < (getwidth() + TAB_W) / 2
 					&& msg.y > 6 * getheight() / 11 && msg.y < 6 * getheight() / 11 + TAB_H)
@@ -794,15 +1117,29 @@ void GameControl()//鼠标信息控制局内消息
 									//判断位置是否为友军
 								{
 									Begin[0] = i, Begin[1] = j;//切换前棋子的信息
-									printf("xsb");//调试使用
+									//printf("xsb");//调试使用
 
 								}
 								else
 								{
 									End[0] = i, End[1] = j;//储存后棋子信息
-									if (decide(Begin, End))//判断位置是否合理!!!!!!!!!!!!!(并且老将是否被将军)
 									{
-										printf(" %d%d->%d%d ", Begin[0], Begin[1], End[0], End[1]);//调试使用
+										for (int u = 0; u < ROW; u++)
+										{
+											for (int t = 0; t < COL; t++)
+											{
+												map_test[u][t] = map_turn[turn][u][t];
+											}
+										}
+										map_test[End[0]][End[1]] = map_test[Begin[0]][Begin[1]];
+										map_test[Begin[0]][Begin[1]].exist = 0;
+										wcscpy(map_test[Begin[0]][Begin[1]].name, L" ");
+										map_test[Begin[0]][Begin[1]].sur = 0;
+										map_test[Begin[0]][Begin[1]].type = 0;//原始位置标为无棋子
+									}//创建一个棋盘检测移动后的将军情况
+									if (decide(Begin, End) && Check())//判断位置是否合理,是否会被将军
+									{
+										//printf(" %d%d->%d%d ", Begin[0], Begin[1], End[0], End[1]);//调试使用
 
 										map_turn[turn][End[0]][End[1]] = map_turn[turn][Begin[0]][Begin[1]];
 										//初始位置的棋子复制到末位置
@@ -810,15 +1147,17 @@ void GameControl()//鼠标信息控制局内消息
 										wcscpy(map_turn[turn][Begin[0]][Begin[1]].name, L" ");
 										map_turn[turn][Begin[0]][Begin[1]].sur = 0;
 										map_turn[turn][Begin[0]][Begin[1]].type = 0;//原始位置标为无棋子
+										BeginBatchDraw();//防止闪烁
 										BoardDraw();//画棋盘
 										PiecesDraw();//画棋子
+										EndBatchDraw();//关闭双缓冲绘图
 										GameUpdate(turn++);//当前棋子信息写到下一回合,为其行动做准备,并且回合加一
 										routype = !routype;//行动完成交换红黑的回合
 										Begin[0] = -1;//变为未选中棋子模式
 									}
 									else//不合理提示一下
 									{
-										printf("sb");//调试使用
+										//printf("sb");//调试使用
 									}
 								}
 							}
@@ -834,8 +1173,10 @@ void GameControl()//鼠标信息控制局内消息
 					&& msg.y > 2 * getheight() / 11 && msg.y < 2 * getheight() / 11 + TAB_H)//返回游戏
 				{
 					during = 1;//改变鼠标判断逻辑为局内
+					BeginBatchDraw();//防止闪烁
 					BoardDraw();//画棋盘
 					PiecesDraw();//画棋子
+					EndBatchDraw();//关闭双缓冲绘图
 				}
 				else if (msg.x > (getwidth() - TAB_W) / 2 && msg.x < (getwidth() + TAB_W) / 2
 					&& msg.y > 4 * getheight() / 11 && msg.y < 4 * getheight() / 11 + TAB_H)//悔棋
@@ -844,9 +1185,11 @@ void GameControl()//鼠标信息控制局内消息
 					{
 						GameUpdate(--turn - 1);//退回一轮并且改变打印的棋盘
 						during = 1;//改变鼠标判断逻辑为局内
+						BeginBatchDraw();//防止闪烁
 						BoardDraw();//画棋盘
 						PiecesDraw();//画棋子
 						routype = !routype;//切换红黑方
+						EndBatchDraw();//关闭双缓冲绘图
 					}
 				}
 				else if (msg.x > (getwidth() - TAB_W) / 2 && msg.x < (getwidth() + TAB_W) / 2
@@ -854,16 +1197,16 @@ void GameControl()//鼠标信息控制局内消息
 				{
 					now = !now;//反转视角
 					during = 1;//改变鼠标判断逻辑为局内
+					BeginBatchDraw();//防止闪烁
 					BoardDraw();//画棋盘
 					PiecesDraw();//画棋子
+					EndBatchDraw();//关闭双缓冲绘图
 				}
 				else if (msg.x > (getwidth() - TAB_W) / 2 && msg.x < (getwidth() + TAB_W) / 2
 					&& msg.y > 8 * getheight() / 11 && msg.y < 8 * getheight() / 11 + TAB_H)//返回菜单
 				{
 					during = 0;//逻辑改为主菜单
 					MainMenu();//画主菜单
-					turn = 1;//重置历史记录
-					GameUpdate(0);//初始化第一轮
 				}
 				else
 				{
@@ -902,6 +1245,5 @@ int main()
 	{
 		GameControl();//鼠标信息控制
 	}
-
 	return 0;
 }
