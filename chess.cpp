@@ -40,9 +40,9 @@ short Begin[] = { -1, -1 }, End[] = { -1, -1 };//记录起始和初始位置
 
 bool routype = 1;//记录回合是红方还是黑方
 bool rouend = 1;//记录对局是否结束
-short during = 0;//鼠标判断逻辑,0主界面,1游戏中,2查看历史,3局内功能键
+short during = 0;//鼠标判断逻辑,0主界面,1游戏中,2查看历史,3局内功能键,4提示送将,5输赢界面
 short turn = 1;//记录回合数的变量
-short Judge = 1;//记录对局是否没有结束
+short Judge = 1;//记录对局是否没有结束,0为结束
 bool now = 1;//记录执棋所在方,0:黑方1:红方
 
 const wchar_t* redlist[7] = { L"車", L"馬", L"相", L"仕", L"帅", L"炮", L"兵" };//红棋名称
@@ -669,7 +669,29 @@ void FunctionKey()
 	settextstyle(FONT, 0, L"楷体");//恢复字体
 }
 
-bool Check()//检测己方老将是否被将军,被将军返回0
+void reset(Chess(*m)[COL], short x, short y)//重置一个二维数组的一个元素为空棋子
+{
+	m[x][y].exist = 0;//赋值为不存在
+	wcscpy(m[x][y].name, L" ");//名字赋值为空
+	m[x][y].sur = 0;//生存状态赋值为0
+	m[x][y].type = 0;//重置黑红方
+}
+
+void TestUpdate(short x, short y, short i, short j)//创建一个棋盘检测移动后的将军情况
+{
+
+	for (int u = 0; u < ROW; u++)
+	{
+		for (int t = 0; t < COL; t++)
+		{
+			map_test[u][t] = map_turn[turn][u][t];
+		}
+	}
+	map_test[i][j] = map_test[x][y];
+	reset(map_test, x, y);
+}
+
+bool Check(Chess(*ma)[COL])//检测己方老将是否被将军,被将军返回0
 {
 	int i = 0, j = 0, u = 0, t = 0, m = 0, n = 0;
 	if (routype)//区分红黑方
@@ -678,7 +700,7 @@ bool Check()//检测己方老将是否被将军,被将军返回0
 		{
 			for (j = 0; j < COL; j++)
 			{
-				if (!wcscmp(map_test[i][j].name, L"帅"))
+				if (!wcscmp(ma[i][j].name, L"帅"))
 				{
 					u = i, t = j;
 				}
@@ -688,9 +710,9 @@ bool Check()//检测己方老将是否被将军,被将军返回0
 		{
 			for (j = 0; j < COL; j++)
 			{
-				if (map_test[i][j].sur && !map_test[i][j].type)//检测是否为黑方棋子
+				if (ma[i][j].sur && !ma[i][j].type)//检测是否为黑方棋子
 				{
-					if (!wcscmp(map_test[i][j].name, L"車"))
+					if (!wcscmp(ma[i][j].name, L"車"))
 					{
 						n = 0;
 						if (i == u)//检测是否和帅是同一排
@@ -698,7 +720,7 @@ bool Check()//检测己方老将是否被将军,被将军返回0
 							for (j > t ? m = 1 : m = -1; j > t ? m < j - t : m > j - t;
 								j > u ? m++ : m--)//判断是否两点间是否有阻挡
 							{
-								if (map_test[i][j - m].sur)
+								if (ma[i][j - m].sur)
 								{
 									n++;
 								}
@@ -709,7 +731,7 @@ bool Check()//检测己方老将是否被将军,被将军返回0
 							for (i > u ? m = 1 : m = -1; i > u ? m < i - u : m > i - u;
 								i > u ? m++ : m--)//判断是否两点间是否有阻挡
 							{
-								if (map_test[i - m][j].sur)
+								if (ma[i - m][j].sur)
 								{
 									n++;
 								}
@@ -724,38 +746,38 @@ bool Check()//检测己方老将是否被将军,被将军返回0
 							return 0;
 						}
 					}
-					else if (!wcscmp(map_test[i][j].name, L"馬"))
+					else if (!wcscmp(ma[i][j].name, L"馬"))
 					{
 						if (t == j - 2 && (u == i - 1 || u == i + 1))//判断行棋是否为日字:判断左
 						{
-							if (!map_test[i][j - 1].sur)//判断是否没有阻挡
+							if (!ma[i][j - 1].sur)//判断是否没有阻挡
 							{
 								return 0;
 							}
 						}
 						else if (t == j + 2 && (u == i - 1 || u == i + 1))//判断行棋是否为日字:判断右
 						{
-							if (!map_test[i][j + 1].sur)//判断是否没有阻挡
+							if (!ma[i][j + 1].sur)//判断是否没有阻挡
 							{
 								return 0;
 							}
 						}
 						else if (u == i - 2 && (t == j - 1 || t == j + 1))//判断行棋是否为日字:判断上
 						{
-							if (!map_test[i - 1][j].sur)//判断是否没有阻挡
+							if (!ma[i - 1][j].sur)//判断是否没有阻挡
 							{
 								return 0;
 							}
 						}
 						else if (u == i + 2 && (t == j - 1 || t == j + 1))//判断行棋是否为日字:判断下
 						{
-							if (!map_test[i + 1][j].sur)//判断是否没有阻挡
+							if (!ma[i + 1][j].sur)//判断是否没有阻挡
 							{
 								return 0;
 							}
 						}
 					}
-					else if (!wcscmp(map_test[i][j].name, L"炮"))
+					else if (!wcscmp(ma[i][j].name, L"炮"))
 					{
 						n = 0;
 						if (i == u)//检测是否和帅是同一排
@@ -763,7 +785,7 @@ bool Check()//检测己方老将是否被将军,被将军返回0
 							for (j > t ? m = 1 : m = -1; j > t ? m < j - t : m > j - t;
 								j > u ? m++ : m--)//判断是否两点间有多少阻挡
 							{
-								if (map_test[i][j - m].sur)
+								if (ma[i][j - m].sur)
 								{
 									n++;
 								}
@@ -774,7 +796,7 @@ bool Check()//检测己方老将是否被将军,被将军返回0
 							for (i > u ? m = 1 : m = -1; i > u ? m < i - u : m > i - u;
 								i > u ? m++ : m--)//判断是否两点间有多少阻挡
 							{
-								if (map_test[i - m][j].sur)
+								if (ma[i - m][j].sur)
 								{
 									n++;
 								}
@@ -785,7 +807,7 @@ bool Check()//检测己方老将是否被将军,被将军返回0
 							return 0;
 						}
 					}
-					else if (!wcscmp(map_test[i][j].name, L"卒"))
+					else if (!wcscmp(ma[i][j].name, L"卒"))
 					{
 						if (i == u)//检测是否和帅是同一排
 						{
@@ -802,7 +824,7 @@ bool Check()//检测己方老将是否被将军,被将军返回0
 							}
 						}
 					}
-					else if (!wcscmp(map_test[i][j].name, L"将"))
+					else if (!wcscmp(ma[i][j].name, L"将"))
 					{
 						n = 0;
 						if (j == t)//检测是否和将是同一列
@@ -810,7 +832,7 @@ bool Check()//检测己方老将是否被将军,被将军返回0
 							for (i > u ? m = 1 : m = -1; i > u ? m < i - u : m > i - u;
 								i > u ? m++ : m--)//判断是否两点间是否有阻挡
 							{
-								if (map_test[i - m][j].sur)
+								if (ma[i - m][j].sur)
 								{
 									n++;
 								}
@@ -832,7 +854,7 @@ bool Check()//检测己方老将是否被将军,被将军返回0
 		{
 			for (j = 0; j < COL; j++)
 			{
-				if (!wcscmp(map_test[i][j].name, L"将"))
+				if (!wcscmp(ma[i][j].name, L"将"))
 				{
 					u = i, t = j;
 				}
@@ -842,9 +864,9 @@ bool Check()//检测己方老将是否被将军,被将军返回0
 		{
 			for (j = 0; j < COL; j++)
 			{
-				if (map_test[i][j].sur && map_test[i][j].type)//检测是否为红方棋子
+				if (ma[i][j].sur && ma[i][j].type)//检测是否为红方棋子
 				{
-					if (!wcscmp(map_test[i][j].name, L"車"))
+					if (!wcscmp(ma[i][j].name, L"車"))
 					{
 						n = 0;
 						if (i == u)//检测是否和将是同一排
@@ -852,7 +874,7 @@ bool Check()//检测己方老将是否被将军,被将军返回0
 							for (j > t ? m = 1 : m = -1; j > t ? m < j - t : m > j - t;
 								j > u ? m++ : m--)//判断是否两点间是否有阻挡
 							{
-								if (map_test[i][j - m].sur)
+								if (ma[i][j - m].sur)
 								{
 									n++;
 								}
@@ -863,7 +885,7 @@ bool Check()//检测己方老将是否被将军,被将军返回0
 							for (i > u ? m = 1 : m = -1; i > u ? m < i - u : m > i - u;
 								i > u ? m++ : m--)//判断是否两点间是否有阻挡
 							{
-								if (map_test[i - m][j].sur)
+								if (ma[i - m][j].sur)
 								{
 									n++;
 								}
@@ -878,38 +900,38 @@ bool Check()//检测己方老将是否被将军,被将军返回0
 							return 0;
 						}
 					}
-					else if (!wcscmp(map_test[i][j].name, L"馬"))
+					else if (!wcscmp(ma[i][j].name, L"馬"))
 					{
 						if (t == j - 2 && (u == i - 1 || u == i + 1))//判断行棋是否为日字:判断左
 						{
-							if (!map_test[i][j - 1].sur)//判断是否没有阻挡
+							if (!ma[i][j - 1].sur)//判断是否没有阻挡
 							{
 								return 0;
 							}
 						}
 						else if (t == j + 2 && (u == i - 1 || u == i + 1))//判断行棋是否为日字:判断右
 						{
-							if (!map_test[i][j + 1].sur)//判断是否没有阻挡
+							if (!ma[i][j + 1].sur)//判断是否没有阻挡
 							{
 								return 0;
 							}
 						}
 						else if (u == i - 2 && (t == j - 1 || t == j + 1))//判断行棋是否为日字:判断上
 						{
-							if (!map_test[i - 1][j].sur)//判断是否没有阻挡
+							if (!ma[i - 1][j].sur)//判断是否没有阻挡
 							{
 								return 0;
 							}
 						}
 						else if (u == i + 2 && (t == j - 1 || t == j + 1))//判断行棋是否为日字:判断下
 						{
-							if (!map_test[i + 1][j].sur)//判断是否没有阻挡
+							if (!ma[i + 1][j].sur)//判断是否没有阻挡
 							{
 								return 0;
 							}
 						}
 					}
-					else if (!wcscmp(map_test[i][j].name, L"炮"))
+					else if (!wcscmp(ma[i][j].name, L"炮"))
 					{
 						n = 0;
 						if (i == u)//检测是否和将是同一排
@@ -917,7 +939,7 @@ bool Check()//检测己方老将是否被将军,被将军返回0
 							for (j > t ? m = 1 : m = -1; j > t ? m < j - t : m > j - t;
 								j > u ? m++ : m--)//判断是否两点间有多少阻挡
 							{
-								if (map_test[i][j - m].sur)
+								if (ma[i][j - m].sur)
 								{
 									n++;
 								}
@@ -928,7 +950,7 @@ bool Check()//检测己方老将是否被将军,被将军返回0
 							for (i > u ? m = 1 : m = -1; i > u ? m < i - u : m > i - u;
 								i > u ? m++ : m--)//判断是否两点间有多少阻挡
 							{
-								if (map_test[i - m][j].sur)
+								if (ma[i - m][j].sur)
 								{
 									n++;
 								}
@@ -939,7 +961,7 @@ bool Check()//检测己方老将是否被将军,被将军返回0
 							return 0;
 						}
 					}
-					else if (!wcscmp(map_test[i][j].name, L"兵"))
+					else if (!wcscmp(ma[i][j].name, L"兵"))
 					{
 						if (i == u)//检测是否和将是同一排
 						{
@@ -956,7 +978,7 @@ bool Check()//检测己方老将是否被将军,被将军返回0
 							}
 						}
 					}
-					else if (!wcscmp(map_test[i][j].name, L"帅"))
+					else if (!wcscmp(ma[i][j].name, L"帅"))
 					{
 						n = 0;
 						if (j == t)//检测是否和帅是同一列
@@ -964,7 +986,7 @@ bool Check()//检测己方老将是否被将军,被将军返回0
 							for (i > u ? m = 1 : m = -1; i > u ? m < i - u : m > i - u;
 								i > u ? m++ : m--)//判断是否两点间是否有阻挡
 							{
-								if (map_test[i - m][j].sur)
+								if (ma[i - m][j].sur)
 								{
 									n++;
 								}
@@ -980,6 +1002,377 @@ bool Check()//检测己方老将是否被将军,被将军返回0
 		}
 		return 1;
 	}
+}
+
+bool GameOver()
+{
+	int i = 0, j = 0, u = 0, t = 0;
+	for (i = 0; i < ROW; i++)
+	{
+		for (j = 0; j < COL; j++)
+		{
+			if (map_turn[turn][i][j].sur && map_turn[turn][i][j].type == routype)//遍历棋子是否为当前回合的
+			{
+				if (!wcscmp(map_turn[turn][i][j].name, L"車"))
+				{
+					for (u = i + 1; u < 10; u++)//遍历垂直递增移动
+					{
+						if (map_turn[turn][u][j].sur && map_turn[turn][u][j].type == routype)//遇到黑棋
+						{
+							break;
+						}
+						else if (map_turn[turn][u][j].sur && map_turn[turn][u][j].type != routype)//遇到红棋
+						{
+							TestUpdate(i, j, u, j);
+							if (Check(map_test))
+							{
+								return 1;
+							}
+							break;
+						}
+						TestUpdate(i, j, u, j);
+						if (Check(map_test))
+						{
+							return 1;
+						}
+					}
+					for (u = i - 1; u > -1; u--)//遍历垂直递减移动
+					{
+						if (map_turn[turn][u][j].sur && map_turn[turn][u][j].type == routype)//遇到黑棋
+						{
+							break;
+						}
+						else if (map_turn[turn][u][j].sur && map_turn[turn][u][j].type != routype)//遇到红棋
+						{
+							TestUpdate(i, j, u, j);
+							if (Check(map_test))
+							{
+								return 1;
+							}
+							break;
+						}
+						TestUpdate(i, j, u, j);
+						if (Check(map_test))
+						{
+							return 1;
+						}
+					}
+					for (t = j + 1; u < 9; u++)//遍历水平递增移动
+					{
+						if (map_turn[turn][i][t].sur && map_turn[turn][i][t].type == routype)//遇到黑棋
+						{
+							break;
+						}
+						else if (map_turn[turn][i][t].sur && map_turn[turn][i][t].type != routype)//遇到红棋
+						{
+							TestUpdate(i, j, i, t);
+							if (Check(map_test))
+							{
+								return 1;
+							}
+							break;
+						}
+						TestUpdate(i, j, i, t);
+						if (Check(map_test))
+						{
+							return 1;
+						}
+					}
+					for (t = j - 1; u > -1; u--)//遍历水平递增移动
+					{
+						if (map_turn[turn][i][t].sur && map_turn[turn][i][t].type == routype)//遇到黑棋
+						{
+							break;
+						}
+						else if (map_turn[turn][i][t].sur && map_turn[turn][i][t].type != routype)//遇到红棋
+						{
+							TestUpdate(i, j, i, t);
+							if (Check(map_test))
+							{
+								return 1;
+							}
+							break;
+						}
+						TestUpdate(i, j, i, t);
+						if (Check(map_test))
+						{
+							return 1;
+						}
+					}
+				}
+				else if (!wcscmp(map_turn[turn][i][j].name, L"馬"))
+				{
+
+				}
+				else if (!wcscmp(map_turn[turn][i][j].name, L"炮"))
+				{
+
+				}
+				else if (!wcscmp(map_turn[turn][i][j].name, L"卒"))
+				{
+					if (map_turn[turn][i][j].riv)//过了河
+					{
+						if (i < ROW - 1)//向前
+						{
+							TestUpdate(i, j, i + 1, j);
+							if (Check(map_test))
+							{
+								return 1;
+							}
+						}
+						if (j < COL - 1)//水平递增
+						{
+							TestUpdate(i, j, i, j + 1);
+							if (Check(map_test))
+							{
+								return 1;
+							}
+						}
+						if (j > 0)//水平递减
+						{
+							TestUpdate(i, j, i, j - 1);
+							if (Check(map_test))
+							{
+								return 1;
+							}
+						}
+					}
+					else//没过河
+					{
+						TestUpdate(i, j, i + 1, j);
+						if (Check(map_test))
+						{
+							return 1;
+						}
+					}
+				}
+				else if (!wcscmp(map_turn[turn][i][j].name, L"兵"))
+				{
+					if (map_turn[turn][i][j].riv)//过了河
+					{
+						if (i > 0)//水平递减
+						{
+							TestUpdate(i, j, i - 1, j);
+							if (Check(map_test))
+							{
+								return 1;
+							}
+						}
+						if (j < COL - 1)//水平递增
+						{
+							TestUpdate(i, j, i, j + 1);
+							if (Check(map_test))
+							{
+								return 1;
+							}
+						}
+						if (j > 0)//水平递减
+						{
+							TestUpdate(i, j, i, j - 1);
+							if (Check(map_test))
+							{
+								return 1;
+							}
+						}
+					}
+					else//没过河
+					{
+						TestUpdate(i, j, i + 1, j);
+						if (Check(map_test))
+						{
+							return 1;
+						}
+					}
+				}
+				else if (!wcscmp(map_turn[turn][i][j].name, L"帅"))
+				{
+
+				}
+				else if (!wcscmp(map_turn[turn][i][j].name, L"将"))
+				{
+
+				}
+				else if (!wcscmp(map_turn[turn][i][j].name, L"相"))
+				{
+					if (j < COL - 1)
+					{
+						if (i < ROW - 1)
+						{
+							if (!map_turn[turn][i + 1][j + 1].sur)
+							{
+								TestUpdate(i, j, i + 2, j + 2);
+								if (Check(map_test))
+								{
+									return 1;
+								}
+							}
+						}
+						if (i > 5)
+						{
+							if (!map_turn[turn][i - 1][j + 1].sur)
+							{
+								TestUpdate(i, j, i - 2, j + 2);
+								if (Check(map_test))
+								{
+									return 1;
+								}
+							}
+						}
+					}
+					if (j > 0)
+					{
+						if (i < ROW - 1)
+						{
+							if (!map_turn[turn][i + 1][j - 1].sur)
+							{
+								TestUpdate(i, j, i + 2, j - 2);
+								if (Check(map_test))
+								{
+									return 1;
+								}
+							}
+						}
+						if (i > 5)
+						{
+							if (!map_turn[turn][i - 1][j - 1].sur)
+							{
+								TestUpdate(i, j, i - 2, j - 2);
+								if (Check(map_test))
+								{
+									return 1;
+								}
+							}
+						}
+					}
+				}
+				else if (!wcscmp(map_turn[turn][i][j].name, L"象"))
+				{
+					if (j < COL - 1)
+					{
+						if (i < 4)
+						{
+							if (!map_turn[turn][i + 1][j + 1].sur)
+							{
+								TestUpdate(i, j, i + 2, j + 2);
+								if (Check(map_test))
+								{
+									return 1;
+								}
+							}
+						}
+						if (i > 0)
+						{
+							if (!map_turn[turn][i - 1][j + 1].sur)
+							{
+								TestUpdate(i, j, i - 2, j + 2);
+								if (Check(map_test))
+								{
+									return 1;
+								}
+							}
+						}
+					}
+					if (j > 0)
+					{
+						if (i < 4)
+						{
+							if (!map_turn[turn][i + 1][j - 1].sur)
+							{
+								TestUpdate(i, j, i + 2, j - 2);
+								if (Check(map_test))
+								{
+									return 1;
+								}
+							}
+						}
+						if (i > 0)
+						{
+							if (!map_turn[turn][i - 1][j - 1].sur)
+							{
+								TestUpdate(i, j, i - 2, j - 2);
+								if (Check(map_test))
+								{
+									return 1;
+								}
+							}
+						}
+					}
+				}
+				else if (!wcscmp(map_turn[turn][i][j].name, L"士"))
+				{
+					if (!(map_turn[turn][i - 1][j - 1].sur && map_turn[turn][i - 1][j - 1].type == routype))//左上
+					{
+						TestUpdate(i, j, i - 1, j - 1);
+						if (Check(map_test))
+						{
+							return 1;
+						}
+					}
+					if (!(map_turn[turn][i - 1][j + 1].sur && map_turn[turn][i - 1][j - 1].type == routype))//右上
+					{
+						TestUpdate(i, j, i - 1, j + 1);
+						if (Check(map_test))
+						{
+							return 1;
+						}
+					}
+					if (!(map_turn[turn][i + 1][j + 1].sur && map_turn[turn][i - 1][j - 1].type == routype))//右下
+					{
+						TestUpdate(i, j, i + 1, j + 1);
+						if (Check(map_test))
+						{
+							return 1;
+						}
+					}
+					if (!(map_turn[turn][i + 1][j - 1].sur && map_turn[turn][i - 1][j - 1].type == routype))//左下
+					{
+						TestUpdate(i, j, i + 1, j - 1);
+						if (Check(map_test))
+						{
+							return 1;
+						}
+					}
+				}
+				else if (!wcscmp(map_turn[turn][i][j].name, L"仕"))
+				{
+					if (!(map_turn[turn][i - 1][j - 1].sur && map_turn[turn][i - 1][j - 1].type == routype))//左上
+					{
+
+						TestUpdate(i, j, i - 1, j - 1);
+						if (Check(map_test))
+						{
+							return 1;
+						}
+					}
+					if (!(map_turn[turn][i - 1][j + 1].sur && map_turn[turn][i - 1][j - 1].type == routype))//右上
+					{
+						TestUpdate(i, j, i - 1, j + 1);
+						if (Check(map_test))
+						{
+							return 1;
+						}
+					}
+					if (!(map_turn[turn][i + 1][j + 1].sur && map_turn[turn][i - 1][j - 1].type == routype))//右下
+					{
+						TestUpdate(i, j, i + 1, j + 1);
+						if (Check(map_test))
+						{
+							return 1;
+						}
+					}
+					if (!(map_turn[turn][i + 1][j - 1].sur && map_turn[turn][i - 1][j - 1].type == routype))//左下
+					{
+						TestUpdate(i, j, i + 1, j - 1);
+						if (Check(map_test))
+						{
+							return 1;
+						}
+					}
+				}
+			}
+		}
+	}
+	return 0;
 }
 
 void GameControl()//鼠标信息控制局内消息
@@ -1117,47 +1510,30 @@ void GameControl()//鼠标信息控制局内消息
 									//判断位置是否为友军
 								{
 									Begin[0] = i, Begin[1] = j;//切换前棋子的信息
-									//printf("xsb");//调试使用
-
 								}
 								else
 								{
 									End[0] = i, End[1] = j;//储存后棋子信息
+									TestUpdate(Begin[0], Begin[1], End[0], End[1]);//创建一个棋盘检测移动后将军情况
+									if (decide(Begin, End) && Check(map_test))//判断位置是否合理,是否会被将军
 									{
-										for (int u = 0; u < ROW; u++)
-										{
-											for (int t = 0; t < COL; t++)
-											{
-												map_test[u][t] = map_turn[turn][u][t];
-											}
-										}
-										map_test[End[0]][End[1]] = map_test[Begin[0]][Begin[1]];
-										map_test[Begin[0]][Begin[1]].exist = 0;
-										wcscpy(map_test[Begin[0]][Begin[1]].name, L" ");
-										map_test[Begin[0]][Begin[1]].sur = 0;
-										map_test[Begin[0]][Begin[1]].type = 0;//原始位置标为无棋子
-									}//创建一个棋盘检测移动后的将军情况
-									if (decide(Begin, End) && Check())//判断位置是否合理,是否会被将军
-									{
-										//printf(" %d%d->%d%d ", Begin[0], Begin[1], End[0], End[1]);//调试使用
-
 										map_turn[turn][End[0]][End[1]] = map_turn[turn][Begin[0]][Begin[1]];
 										//初始位置的棋子复制到末位置
-										map_turn[turn][Begin[0]][Begin[1]].exist = 0;
-										wcscpy(map_turn[turn][Begin[0]][Begin[1]].name, L" ");
-										map_turn[turn][Begin[0]][Begin[1]].sur = 0;
-										map_turn[turn][Begin[0]][Begin[1]].type = 0;//原始位置标为无棋子
+										reset(map_turn[turn], Begin[0], Begin[1]);//原始位置标为无棋子
 										BeginBatchDraw();//防止闪烁
 										BoardDraw();//画棋盘
 										PiecesDraw();//画棋子
 										EndBatchDraw();//关闭双缓冲绘图
-										GameUpdate(turn++);//当前棋子信息写到下一回合,为其行动做准备,并且回合加一
 										routype = !routype;//行动完成交换红黑的回合
 										Begin[0] = -1;//变为未选中棋子模式
-									}
-									else//不合理提示一下
-									{
-										//printf("sb");//调试使用
+										if (!Check(map_turn[turn]))//判断
+										{
+											Judge = GameOver();//判断输赢
+										}
+										if (Judge)//如果未分胜负写到下一回合
+										{
+											GameUpdate(turn++);//当前棋子信息写到下一回合,为其行动做准备,并且回合加一
+										}
 									}
 								}
 							}
@@ -1218,6 +1594,10 @@ void GameControl()//鼠标信息控制局内消息
 					}
 				}
 				break;
+			case 4:
+				during = 1;
+				BoardDraw();//画棋盘
+				PiecesDraw();//画棋子
 				break;
 			default:
 				break;
@@ -1244,6 +1624,14 @@ int main()
 	while (Judge)//主循环
 	{
 		GameControl();//鼠标信息控制
+	}
+	if (routype)//分辨红胜利
+	{
+
+	}
+	else//分辨黑胜利
+	{
+
 	}
 	return 0;
 }
