@@ -44,6 +44,7 @@ short during = 0;//鼠标判断逻辑,0主界面,1游戏中,2查看历史,3局内功能键,4提示送将,
 short turn = 1;//记录回合数的变量
 short Judge = 1;//记录对局是否没有结束,0为结束
 bool now = 1;//记录执棋所在方,0:黑方1:红方
+bool is = 1;//记录是否可以继续游戏
 
 const wchar_t* redlist[7] = { L"車", L"馬", L"相", L"仕", L"帅", L"炮", L"兵" };//红棋名称
 const wchar_t* blacklist[7] = { L"車", L"馬", L"象", L"士", L"将", L"炮", L"卒" };//黑棋名称
@@ -170,10 +171,21 @@ void MainMenu()//画主菜单
 	}
 	for (int i = 0; i < 4; i++)//打印文字
 	{
-		settextcolor(BLACK);
-		settextstyle(40, 0, L"宋体");
-		outtextxy((getwidth() - textwidth(tab[i])) / 2,
-			getheight() * (i + 1) * 2 / 11 + (TAB_H - textheight(tab[i])) / 2, tab[i]);
+		if (1 == i && !is)
+		{
+			settextcolor(RGB(100, 100, 100));
+			settextstyle(40, 0, L"宋体");
+			outtextxy((getwidth() - textwidth(tab[i])) / 2,
+				getheight() * (i + 1) * 2 / 11 + (TAB_H - textheight(tab[i])) / 2, tab[i]);
+			settextcolor(BLACK);
+		}
+		else
+		{
+			settextcolor(BLACK);
+			settextstyle(40, 0, L"宋体");
+			outtextxy((getwidth() - textwidth(tab[i])) / 2,
+				getheight() * (i + 1) * 2 / 11 + (TAB_H - textheight(tab[i])) / 2, tab[i]);
+		}
 	}
 	settextstyle(FONT, 0, L"楷体");
 	EndBatchDraw();//关闭双缓冲绘图
@@ -417,7 +429,7 @@ bool decide(short* Begin, short* End)//判断两点是否与类型匹配
 		}
 		if ((2 == by - ey || -2 == by - ey) && (2 == bx - ex || -2 == bx - ex))//判断两点是否为隔着一格的斜角
 		{
-			if (map_turn[turn][(by + ey) / 2][(by + ey) / 2].sur)//判断是否两点之间是否有棋子
+			if (map_turn[turn][(by + ey) / 2][(bx + ex) / 2].sur)//判断是否两点之间是否有棋子
 			{
 				return 0;
 			}
@@ -641,6 +653,33 @@ void DarkPiecesDraw()//画棋子
 	setfillcolor(COLOR);//恢复填充颜色
 }
 
+void OverDraw()//绘制对局结束
+{
+	BeginBatchDraw();//防止闪烁
+	DarkBoardDraw();//暗棋盘
+	DarkPiecesDraw();//暗棋子
+	fillroundrect((getwidth() - TAB_W) / 2, getheight() * 2 / 11,
+		(getwidth() + TAB_W) / 2, getheight() * 4 / 11 + TAB_H, 370, 250);//画出选项卡
+	fillroundrect(1.5 * SIZE, getheight() * 6 / 11, 4 * SIZE,
+		getheight() * 6 / 11 + TAB_H, 30, 30);//画出选项卡
+	fillroundrect(6 * SIZE, getheight() * 6 / 11, 8.5 * SIZE,
+		getheight() * 6 / 11 + TAB_H, 30, 30);//画出选项卡
+	settextcolor(BLACK);
+	outtextxy((5.5 * SIZE - textwidth(tab[0])) / 2, getheight() * 6 / 11
+		+ (TAB_H - textheight(tab[0])) / 2, tab[0]);//打印"新游戏"
+	outtextxy((14.5 * SIZE - textwidth(key[3])) / 2, getheight() * 6 / 11
+		+ (TAB_H - textheight(key[3])) / 2, key[3]);//打印"返回菜单"
+	EndBatchDraw();//关闭双缓冲绘图
+	if (routype)//分辨红胜利
+	{
+
+	}
+	else//分辨黑胜利
+	{
+
+	}
+}
+
 void FunctionKey()
 {
 	DarkBoardDraw();
@@ -783,7 +822,7 @@ bool Check(Chess(*ma)[COL])//检测己方老将是否被将军,被将军返回0
 						if (i == u)//检测是否和帅是同一排
 						{
 							for (j > t ? m = 1 : m = -1; j > t ? m < j - t : m > j - t;
-								j > u ? m++ : m--)//判断是否两点间有多少阻挡
+								j > t ? m++ : m--)//判断是否两点间有多少阻挡
 							{
 								if (ma[i][j - m].sur)
 								{
@@ -1102,11 +1141,205 @@ bool GameOver()
 				}
 				else if (!wcscmp(map_turn[turn][i][j].name, L"馬"))
 				{
-
+					if (i > 1 && !map_turn[turn][i - 1][j].sur)//上
+					{
+						if (j > 0 && !(map_turn[turn][i - 2][j - 1].sur &&
+							map_turn[turn][i - 2][j - 1].type == routype))//上左
+						{
+							TestUpdate(i, j, i - 2, j - 1);
+							if (Check(map_test))
+							{
+								return 1;
+							}
+						}
+						if (j < 8 && !(map_turn[turn][i - 2][j + 1].sur &&
+							map_turn[turn][i - 2][j + 1].type == routype))//上右
+						{
+							TestUpdate(i, j, i - 2, j + 1);
+							if (Check(map_test))
+							{
+								return 1;
+							}
+						}
+					}
+					if (i < 8 && !map_turn[turn][i + 1][j].sur)//下
+					{
+						if (j > 0 && !(map_turn[turn][i + 2][j - 1].sur &&
+							map_turn[turn][i + 2][j - 1].type == routype))//下左
+						{
+							TestUpdate(i, j, i + 2, j - 1);
+							if (Check(map_test))
+							{
+								return 1;
+							}
+						}
+						if (j < 8 && !(map_turn[turn][i + 2][j + 1].sur &&
+							map_turn[turn][i + 2][j + 1].type == routype))//下右
+						{
+							TestUpdate(i, j, i + 2, j + 1);
+							if (Check(map_test))
+							{
+								return 1;
+							}
+						}
+					}
+					if (j > 1 && !map_turn[turn][i][j - 1].sur)//左
+					{
+						if (i < 9 && !(map_turn[turn][i + 1][j - 2].sur &&
+							map_turn[turn][i + 1][j - 2].type == routype))//左下
+						{
+							TestUpdate(i, j, i + 2, j - 1);
+							if (Check(map_test))
+							{
+								return 1;
+							}
+						}
+						if (i > 0 && !(map_turn[turn][i - 1][j - 2].sur &&
+							map_turn[turn][i - 1][j - 2].type == routype))//左上
+						{
+							TestUpdate(i, j, i - 1, j - 2);
+							if (Check(map_test))
+							{
+								return 1;
+							}
+						}
+					}
+					if (j < 7 && !map_turn[turn][i][j + 1].sur)//右
+					{
+						if (i < 9 && !(map_turn[turn][i + 1][j - 2].sur &&
+							map_turn[turn][i + 1][j - 2].type == routype))//右下
+						{
+							TestUpdate(i, j, i + 2, j - 1);
+							if (Check(map_test))
+							{
+								return 1;
+							}
+						}
+						if (i > 0 && !(map_turn[turn][i - 1][j - 2].sur &&
+							map_turn[turn][i - 1][j - 2].type == routype))//右上
+						{
+							TestUpdate(i, j, i - 1, j - 2);
+							if (Check(map_test))
+							{
+								return 1;
+							}
+						}
+					}
 				}
 				else if (!wcscmp(map_turn[turn][i][j].name, L"炮"))
 				{
-
+					t = 0;//用于计数遇到棋子
+					for (u = i + 1; u < ROW; u++)//遍历垂直递增移动
+					{
+						if (!map_turn[turn][u][j].sur)//先判断不吃子
+						{
+							TestUpdate(i, j, u, j);
+							if (Check(map_test))
+							{
+								return 1;
+							}
+						}
+						else//判断能否吃子
+						{
+							t++;//用于计数遇到棋子
+							if (2 == t)//检测第二个棋子
+							{
+								if (map_turn[turn][u][j].sur && map_turn[turn][u][j].type != routype)
+								{
+									TestUpdate(i, j, u, j);
+									if (Check(map_test))
+									{
+										return 1;
+									}
+									break;
+								}
+							}
+						}
+					}
+					t = 0;//用于计数遇到棋子
+					for (u = i - 1; u > -1; u--)//遍历垂直递减移动
+					{
+						if (!map_turn[turn][u][j].sur)//先判断不吃子
+						{
+							TestUpdate(i, j, u, j);
+							if (Check(map_test))
+							{
+								return 1;
+							}
+						}
+						else//判断能否吃子
+						{
+							t++;//用于计数遇到棋子
+							if (2 == t)//检测第二个棋子
+							{
+								if (map_turn[turn][u][j].sur && map_turn[turn][u][j].type != routype)
+								{
+									TestUpdate(i, j, u, j);
+									if (Check(map_test))
+									{
+										return 1;
+									}
+									break;
+								}
+							}
+						}
+					}
+					u = 0;//用于计数遇到棋子
+					for (t = j + 1; t < COL; t++)//遍历水平递增移动
+					{
+						if (!map_turn[turn][i][t].sur)//先判断不吃子
+						{
+							TestUpdate(i, j, i, t);
+							if (Check(map_test))
+							{
+								return 1;
+							}
+						}
+						else//判断能否吃子
+						{
+							u++;//用于计数遇到棋子
+							if (2 == u)//检测第二个棋子
+							{
+								if (map_turn[turn][i][t].sur && map_turn[turn][i][t].type != routype)
+								{
+									TestUpdate(i, j, i, t);
+									if (Check(map_test))
+									{
+										return 1;
+									}
+									break;
+								}
+							}
+						}
+					}
+					u = 0;//用于计数遇到棋子
+					for (t = j - 1; t > -1; t--)//遍历水平递增移动
+					{
+						if (!map_turn[turn][i][t].sur)//先判断不吃子
+						{
+							TestUpdate(i, j, i, t);
+							if (Check(map_test))
+							{
+								return 1;
+							}
+						}
+						else//判断能否吃子
+						{
+							u++;//用于计数遇到棋子
+							if (2 == u)//检测第二个棋子
+							{
+								if (map_turn[turn][i][t].sur && map_turn[turn][i][t].type != routype)
+								{
+									TestUpdate(i, j, i, t);
+									if (Check(map_test))
+									{
+										return 1;
+									}
+									break;
+								}
+							}
+						}
+					}
 				}
 				else if (!wcscmp(map_turn[turn][i][j].name, L"卒"))
 				{
@@ -1186,11 +1419,97 @@ bool GameOver()
 				}
 				else if (!wcscmp(map_turn[turn][i][j].name, L"帅"))
 				{
-
+					if (i < ROW - 1)//向下
+					{
+						if (!(map_turn[turn][i + 1][j].sur && map_turn[turn][i + 1][j].type == routype))//是否可以走
+						{
+							TestUpdate(i, j, i + 1, j);
+							if (Check(map_test))
+							{
+								return 1;
+							}
+						}
+					}
+					if (i > 7)//向上
+					{
+						if (!(map_turn[turn][i - 1][j].sur && map_turn[turn][i - 1][j].type == routype))//是否可以走
+						{
+							TestUpdate(i, j, i - 1, j);
+							if (Check(map_test))
+							{
+								return 1;
+							}
+						}
+					}
+					if (j > 3)//向左
+					{
+						if (!(map_turn[turn][i][j - 1].sur && map_turn[turn][i][j - 1].type == routype))//是否可以走
+						{
+							TestUpdate(i, j, i, j - 1);
+							if (Check(map_test))
+							{
+								return 1;
+							}
+						}
+					}
+					if (i < 5)//向右
+					{
+						if (!(map_turn[turn][i][j + 1].sur && map_turn[turn][i][j + 1].type == routype))//是否可以走
+						{
+							TestUpdate(i, j, i, j + 1);
+							if (Check(map_test))
+							{
+								return 1;
+							}
+						}
+					}
 				}
 				else if (!wcscmp(map_turn[turn][i][j].name, L"将"))
 				{
-
+					if (i < 2)//向下
+					{
+						if (!(map_turn[turn][i + 1][j].sur && map_turn[turn][i + 1][j].type == routype))//是否可以走
+						{
+							TestUpdate(i, j, i + 1, j);
+							if (Check(map_test))
+							{
+								return 1;
+							}
+						}
+					}
+					if (i > 0)//向上
+					{
+						if (!(map_turn[turn][i - 1][j].sur && map_turn[turn][i - 1][j].type == routype))//是否可以走
+						{
+							TestUpdate(i, j, i - 1, j);
+							if (Check(map_test))
+							{
+								return 1;
+							}
+						}
+					}
+					if (j > 3)//向左
+					{
+						if (!(map_turn[turn][i][j - 1].sur && map_turn[turn][i][j - 1].type == routype))//是否可以走
+						{
+							TestUpdate(i, j, i, j - 1);
+							if (Check(map_test))
+							{
+								return 1;
+							}
+						}
+					}
+					if (i < 5)//向右
+					{
+						if (!(map_turn[turn][i][j + 1].sur && map_turn[turn][i][j + 1].type == routype))//是否可以走
+						{
+							TestUpdate(i, j, i, j + 1);
+							if (Check(map_test))
+							{
+								return 1;
+							}
+						}
+					}
 				}
 				else if (!wcscmp(map_turn[turn][i][j].name, L"相"))
 				{
@@ -1302,22 +1621,29 @@ bool GameOver()
 				{
 					if (!(map_turn[turn][i - 1][j - 1].sur && map_turn[turn][i - 1][j - 1].type == routype))//左上
 					{
-						TestUpdate(i, j, i - 1, j - 1);
-						if (Check(map_test))
+						if (i == 1 && j == 4 || i == 2 && j == 5)
 						{
-							return 1;
+							TestUpdate(i, j, i - 1, j - 1);
+							if (Check(map_test))
+							{
+								return 1;
+							}
 						}
 					}
 					if (!(map_turn[turn][i - 1][j + 1].sur && map_turn[turn][i - 1][j - 1].type == routype))//右上
 					{
-						TestUpdate(i, j, i - 1, j + 1);
-						if (Check(map_test))
+						if (i == 1 && j == 4 || i == 2 && j == 3)
 						{
-							return 1;
+							TestUpdate(i, j, i - 1, j + 1);
+							if (Check(map_test))
+							{
+								return 1;
+							}
 						}
 					}
 					if (!(map_turn[turn][i + 1][j + 1].sur && map_turn[turn][i - 1][j - 1].type == routype))//右下
 					{
+						if (i == 1 && j == 4 || i == 0 && j == 3)
 						TestUpdate(i, j, i + 1, j + 1);
 						if (Check(map_test))
 						{
@@ -1326,46 +1652,60 @@ bool GameOver()
 					}
 					if (!(map_turn[turn][i + 1][j - 1].sur && map_turn[turn][i - 1][j - 1].type == routype))//左下
 					{
-						TestUpdate(i, j, i + 1, j - 1);
-						if (Check(map_test))
+						if (i == 1 && j == 4 || i == 0 && j == 5)
 						{
-							return 1;
+							TestUpdate(i, j, i + 1, j - 1);
+							if (Check(map_test))
+							{
+								return 1;
+							}
 						}
 					}
 				}
 				else if (!wcscmp(map_turn[turn][i][j].name, L"仕"))
 				{
-					if (!(map_turn[turn][i - 1][j - 1].sur && map_turn[turn][i - 1][j - 1].type == routype))//左上
+					if (i == 8 && j == 4 || i == 9 && j == 5)
 					{
-
-						TestUpdate(i, j, i - 1, j - 1);
-						if (Check(map_test))
+						if (!(map_turn[turn][i - 1][j - 1].sur && map_turn[turn][i - 1][j - 1].type == routype))//左上
 						{
-							return 1;
+							TestUpdate(i, j, i - 1, j - 1);
+							if (Check(map_test))
+							{
+								return 1;
+							}
 						}
 					}
-					if (!(map_turn[turn][i - 1][j + 1].sur && map_turn[turn][i - 1][j - 1].type == routype))//右上
+					if (i == 8 && j == 4 || i == 9 && j == 3)
 					{
-						TestUpdate(i, j, i - 1, j + 1);
-						if (Check(map_test))
+						if (!(map_turn[turn][i - 1][j + 1].sur && map_turn[turn][i - 1][j - 1].type == routype))//右上
 						{
-							return 1;
+							TestUpdate(i, j, i - 1, j + 1);
+							if (Check(map_test))
+							{
+								return 1;
+							}
 						}
 					}
-					if (!(map_turn[turn][i + 1][j + 1].sur && map_turn[turn][i - 1][j - 1].type == routype))//右下
+					if (i == 8 && j == 4 || i == 7 && j == 3)
 					{
-						TestUpdate(i, j, i + 1, j + 1);
-						if (Check(map_test))
+						if (!(map_turn[turn][i + 1][j + 1].sur && map_turn[turn][i - 1][j - 1].type == routype))//右下
 						{
-							return 1;
+							TestUpdate(i, j, i + 1, j + 1);
+							if (Check(map_test))
+							{
+								return 1;
+							}
 						}
 					}
-					if (!(map_turn[turn][i + 1][j - 1].sur && map_turn[turn][i - 1][j - 1].type == routype))//左下
+					if (i == 8 && j == 4 || i == 7 && j == 5)
 					{
-						TestUpdate(i, j, i + 1, j - 1);
-						if (Check(map_test))
+						if (!(map_turn[turn][i + 1][j - 1].sur && map_turn[turn][i - 1][j - 1].type == routype))//左下
 						{
-							return 1;
+							TestUpdate(i, j, i + 1, j - 1);
+							if (Check(map_test))
+							{
+								return 1;
+							}
 						}
 					}
 				}
@@ -1434,12 +1774,21 @@ void GameControl()//鼠标信息控制局内消息
 			}
 			break;
 		case WM_LBUTTONUP:
+			if (!during)//如果在主菜单
+			{
+				for (int i = 0; i < 4; i++)//绘制选项卡
+				{
+					roundrect((getwidth() - TAB_W) / 2, getheight() * (i + 1) * 2 / 11, (getwidth() + TAB_W) / 2,
+						getheight() * (i + 1) * 2 / 11 + TAB_H, 30, 60);
+				}
+			}
 			switch (during)
 			{
 			case 0:
 				if (msg.x > (getwidth() - TAB_W) / 2 && msg.x < (getwidth() + TAB_W) / 2
-					&& msg.y > 2 * getheight() / 11 && msg.y < 2 * getheight() / 11 + TAB_H)
+					&& msg.y > 2 * getheight() / 11 && msg.y < 2 * getheight() / 11 + TAB_H)//新游戏
 				{
+					is = 1;//可以使用继续游戏
 					routype = 1;//切换红方
 					turn = 1;//重置历史记录
 					GameUpdate(0);//初始化第一轮
@@ -1450,13 +1799,16 @@ void GameControl()//鼠标信息控制局内消息
 					EndBatchDraw();//关闭双缓冲绘图
 				}
 				else if (msg.x > (getwidth() - TAB_W) / 2 && msg.x < (getwidth() + TAB_W) / 2
-					&& msg.y > 4 * getheight() / 11 && msg.y < 4 * getheight() / 11 + TAB_H)
+					&& msg.y > 4 * getheight() / 11 && msg.y < 4 * getheight() / 11 + TAB_H)//继续游戏
 				{
-					during = 1;//改变鼠标判断逻辑为局内
-					BeginBatchDraw();//防止闪烁
-					BoardDraw();//画棋盘
-					PiecesDraw();//画棋子
-					EndBatchDraw();//关闭双缓冲绘图
+					if (is)
+					{
+						during = 1;//改变鼠标判断逻辑为局内
+						BeginBatchDraw();//防止闪烁
+						BoardDraw();//画棋盘
+						PiecesDraw();//画棋子
+						EndBatchDraw();//关闭双缓冲绘图
+					}
 				}
 				else if (msg.x > (getwidth() - TAB_W) / 2 && msg.x < (getwidth() + TAB_W) / 2
 					&& msg.y > 6 * getheight() / 11 && msg.y < 6 * getheight() / 11 + TAB_H)
@@ -1464,7 +1816,7 @@ void GameControl()//鼠标信息控制局内消息
 
 				}
 				else if (msg.x > (getwidth() - TAB_W) / 2 && msg.x < (getwidth() + TAB_W) / 2
-					&& msg.y > 8 * getheight() / 11 && msg.y < 8 * getheight() / 11 + TAB_H)
+					&& msg.y > 8 * getheight() / 11 && msg.y < 8 * getheight() / 11 + TAB_H)//退出
 				{
 					exit(0);
 				}
@@ -1533,6 +1885,11 @@ void GameControl()//鼠标信息控制局内消息
 										if (Judge)//如果未分胜负写到下一回合
 										{
 											GameUpdate(turn++);//当前棋子信息写到下一回合,为其行动做准备,并且回合加一
+										}
+										else
+										{
+											OverDraw();//绘制对局结束
+											is = 0;//不能再使用继续游戏
 										}
 									}
 								}
@@ -1607,9 +1964,41 @@ void GameControl()//鼠标信息控制局内消息
 	}
 }
 
+void GameOverControl()//游戏结束时的鼠标信息控制
+{
+	if (MouseHit())
+	{
+		msg = GetMouseMsg();
+		if (WM_LBUTTONUP == msg.uMsg)
+		{
+			if (1.5 * SIZE <= msg.x && getheight() * 6 / 11 <= msg.y && 4 * SIZE >= msg.x
+				&& getheight() * 6 / 11 + TAB_H >= msg.y)//判断第一个选项卡
+			{
+				is = 1;//可以使用继续游戏
+				routype = 1;//切换红方
+				turn = 1;//重置历史记录
+				GameUpdate(0);//初始化第一轮
+				during = 1;//改变鼠标判断逻辑为局内
+				BeginBatchDraw();//防止闪烁
+				BoardDraw();//画棋盘
+				PiecesDraw();//画棋子
+				EndBatchDraw();//关闭双缓冲绘图
+				Judge = 1;//改对局结束判定为未结束
+			}
+			if (6 * SIZE <= msg.x && getheight() * 6 / 11 <= msg.y && 8.5 * SIZE >=msg.x
+				&& getheight() * 6 / 11 + TAB_H >= msg.y)
+			{
+				during = 0;//逻辑改为主菜单
+				MainMenu();//画主菜单
+				Judge = 1;//改对局结束判定为未结束
+			}
+		}
+	}
+}
+
 int main()
 {
-	initgraph(700, 770, SHOWCONSOLE);//创建画面
+	initgraph(700, 770);//创建画面
 	Init();//初始化样式、颜色等
 	GameInit();//初始化棋子等
 	for (int i = 0; i < ROW; i++)//把当前数组写到总流程数组内
@@ -1621,17 +2010,13 @@ int main()
 	}
 	GameUpdate(0);//初始化第一轮
 	MainMenu();//画主菜单
-	while (Judge)//主循环
+	do//用于游戏结束后的循环
 	{
-		GameControl();//鼠标信息控制
-	}
-	if (routype)//分辨红胜利
-	{
-
-	}
-	else//分辨黑胜利
-	{
-
-	}
+		while (Judge)//主循环
+		{
+			GameControl();//鼠标信息控制
+		}
+		GameOverControl();//游戏结束时的鼠标信息控制
+	} while (1);
 	return 0;
 }
