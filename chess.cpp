@@ -18,7 +18,10 @@
 #define TAB_H 90//选项卡高
 #define TURN 100//数组最大步数
 #define KEY 70//功能键大小
-#define KEY_E 30//功能键露出区域大小
+#define KEY_E 25//功能键露出区域大小
+#define SIZE_TRUMPET 45//小格子大小
+#define ROU_TRUMPET 19//小棋子半径大小
+#define FONT_TRUMPET 23//小棋子字体大小
 
 struct Chess
 {
@@ -38,6 +41,7 @@ MOUSEMSG msg;
 
 short Begin[] = { -1, -1 }, End[] = { -1, -1 };//记录起始和初始位置
 
+int memsize_map = sizeof(struct Chess) * ROW * COL;//记录一个map所占字节数
 bool routype = 1;//记录回合是红方还是黑方
 bool rouend = 1;//记录对局是否结束
 short during = 0;//鼠标判断逻辑,0主界面,1游戏中,2查看历史,3局内功能键,4提示送将,5输赢界面
@@ -45,6 +49,9 @@ short turn = 1;//记录回合数的变量
 short Judge = 1;//记录对局是否没有结束,0为结束
 bool now = 1;//记录执棋所在方,0:黑方1:红方
 bool is = 1;//记录是否可以继续游戏
+short history = 1;//记录读取的文件位置
+bool oi = 0;//判断打印退出还是进入,0:进入,1:退出
+short his;//关于历史记录的对局数
 
 const wchar_t* redlist[7] = { L"車", L"馬", L"相", L"仕", L"帅", L"炮", L"兵" };//红棋名称
 const wchar_t* blacklist[7] = { L"車", L"馬", L"象", L"士", L"将", L"炮", L"卒" };//黑棋名称
@@ -191,41 +198,46 @@ void MainMenu()//画主菜单
 	EndBatchDraw();//关闭双缓冲绘图
 }
 
-void BoardDraw()//画棋盘
+void BoardDraw(int s, int f, int f_r, int l)//画棋盘s:格子大小,f:字体大小,f_r:楚河汉界大小,l:线条粗细
 {
 	int i = 0;
 	cleardevice();//刷新背景
+	setlinestyle(PS_SOLID, l);//设置线条效果
 	for (i = 0; i < ROW; i++)//画横线
 	{
-		line(SIZE, (i + 1) * SIZE, getwidth() - SIZE, (i + 1) * SIZE);
+		line(s, (i + 1) * s, s * COL, (i + 1) * s);
 	}
 	for (i = 0; i < COL; i++)//画竖线
 	{
-		line((i + 1) * SIZE, SIZE, (i + 1) * SIZE, getheight() - SIZE);
+		line((i + 1) * s, s, (i + 1) * s, s * ROW);
 	}
-	rectangle(SIZE - 5, SIZE - 5, getwidth() - SIZE + 5, getheight() - SIZE + 5);//画外边框
-	fillrectangle(SIZE, (ROW / 2) * SIZE, getwidth() - SIZE, (ROW / 2 + 1) * SIZE);//覆盖中间的竖线
-	line(4 * SIZE, SIZE, 6 * SIZE, 3 * SIZE);
-	line(4 * SIZE, 3 * SIZE, 6 * SIZE, SIZE);
-	line(4 * SIZE, 10 * SIZE, 6 * SIZE, 8 * SIZE);
-	line(4 * SIZE, 8 * SIZE, 6 * SIZE, 10 * SIZE);//以上四条画棋盘上的斜线
+	rectangle(s - 5, s - 5, s * COL + 5, s * ROW + 5);//画外边框
+	fillrectangle(s, (ROW / 2) * s, s * COL, (ROW / 2 + 1) * s);//覆盖中间的竖线
+	line(4 * s, s, 6 * s, 3 * s);
+	line(4 * s, 3 * s, 6 * s, s);
+	line(4 * s, 10 * s, 6 * s, 8 * s);
+	line(4 * s, 8 * s, 6 * s, 10 * s);//以上四条画棋盘上的斜线
 	settextcolor(BLACK);//字体颜色设置
-	settextstyle(50, 0, L"楷体");//用于楚河汉界的字体设置
-	outtextxy((getwidth() - textwidth(RIVER)) / 2,
-		(getheight() - textheight(RIVER)) / 2, RIVER);//棋盘中间加上楚河汉界
-	settextstyle(FONT, 0, L"楷体");//用于棋子的字体设置
-	setfillcolor(DCOLOR);//设置填充颜色
-	solidroundrect((getwidth() - KEY) / 2, KEY_E - KEY, (getwidth() + KEY) / 2, KEY_E, 10, 10);//画出功能键
-	setfillcolor(COLOR);//恢复填充颜色
-	setlinestyle(PS_SOLID, 6);//设置线条效果
-	setlinecolor(RGB(200, 175, 145));//设置线条颜色
-	line((getwidth() - KEY) / 2 + 16, KEY_E / 2, (getwidth() + KEY) / 2 - 16, KEY_E / 2);//画出功能键的内饰
+	settextstyle(f_r, 0, L"楷体");//用于楚河汉界的字体设置
+	outtextxy(((COL + 1) * s - textwidth(RIVER)) / 2,
+		((ROW + 1) * s - textheight(RIVER)) / 2, RIVER);//棋盘中间加上楚河汉界
+	settextstyle(f, 0, L"楷体");//用于棋子的字体设置
+	if (1 == during)//判断是否画出功能键
+	{
+		setfillcolor(DCOLOR);//设置填充颜色
+		solidroundrect((getwidth() - KEY) / 2, KEY_E - KEY, (getwidth() + KEY) / 2, KEY_E, 10, 10);//画出功能键
+		setfillcolor(COLOR);//恢复填充颜色
+		setlinestyle(PS_SOLID, 6);//设置线条效果
+		setlinecolor(RGB(200, 175, 145));//设置线条颜色
+		line((getwidth() - KEY) / 2 + 16, KEY_E / 2, (getwidth() + KEY) / 2 - 16, KEY_E / 2);//画出功能键的内饰
+	}
 	setlinestyle(PS_SOLID, 2);//恢复线条效果
 	setlinecolor(BLACK);//恢复线条颜色
 }
 
-void PiecesDraw()//画棋子
+void PiecesDraw(int s, int f, int r, int l)//画棋子s:格子大小,f:字体大小,r:棋子半径大小,l:线条粗细
 {
+	setlinestyle(PS_SOLID, l);//设置线条效果
 	for (int i = 0; i < ROW; i++)
 	{
 		for (int j = 0; j < COL; j++)
@@ -234,39 +246,40 @@ void PiecesDraw()//画棋子
 			{
 				if (now)//判断什么视角打印
 				{
-					fillcircle(SIZE * (j + 1), SIZE * (i + 1), ROU);//棋子的背景
+					fillcircle(s * (j + 1), s * (i + 1), r);//棋子的背景
 					if (map_turn[turn][i][j].type)
 					{
 						settextcolor(RED);//字体颜色设置
-						outtextxy(SIZE * (j + 1) - FONT / 2,
-							SIZE * (i + 1) - FONT / 2, map_turn[turn][i][j].name);//棋子的字
+						outtextxy(s * (j + 1) - f / 2,
+							s * (i + 1) - f / 2, map_turn[turn][i][j].name);//棋子的字
 					}
 					else
 					{
 						settextcolor(BLACK);//字体颜色设置
-						outtextxy(SIZE * (j + 1) - FONT / 2,
-							SIZE * (i + 1) - FONT / 2, map_turn[turn][i][j].name);//棋子的字
+						outtextxy(s * (j + 1) - f / 2,
+							s * (i + 1) - f / 2, map_turn[turn][i][j].name);//棋子的字
 					}
 				}
 				else
 				{
-					fillcircle(SIZE * (COL - j), SIZE * (ROW - i), ROU);//棋子的背景
+					fillcircle(s * (COL - j), s * (ROW - i), r);//棋子的背景
 					if (map_turn[turn][i][j].type)
 					{
 						settextcolor(RED);//字体颜色设置
-						outtextxy(SIZE * (COL - j) - FONT / 2,
-							SIZE * (ROW - i) - FONT / 2, map_turn[turn][i][j].name);//棋子的字
+						outtextxy(s * (COL - j) - f / 2,
+							s * (ROW - i) - f / 2, map_turn[turn][i][j].name);//棋子的字
 					}
 					else
 					{
 						settextcolor(BLACK);//字体颜色设置
-						outtextxy(SIZE * (COL - j) - FONT / 2,
-							SIZE * (ROW - i) - FONT / 2, map_turn[turn][i][j].name);//棋子的字
+						outtextxy(s * (COL - j) - f / 2,
+							s * (ROW - i) - f / 2, map_turn[turn][i][j].name);//棋子的字
 					}
 				}
 			}
 		}
 	}
+	setlinestyle(PS_SOLID, 2);//设置线条效果
 }
 
 bool judge(short x, short y, int i, int j)//红方视角判断光标落点
@@ -706,6 +719,34 @@ void FunctionKey()
 			getheight() * (i + 1) * 2 / 11 + (TAB_H - textheight(key[i])) / 2, key[i]);
 	}
 	settextstyle(FONT, 0, L"楷体");//恢复字体
+}
+
+void HistoryDraw()//绘制历史记录样式
+{
+	BeginBatchDraw();//防止闪烁
+	BoardDraw(SIZE_TRUMPET, FONT_TRUMPET, 32, 1);//画棋盘
+	PiecesDraw(SIZE_TRUMPET, FONT_TRUMPET, ROU_TRUMPET, 1);//画棋子
+	for (int i = 1; i < 3; i++)//绘制选项卡
+	{
+		roundrect(10 * SIZE_TRUMPET, (4 * i - 1) * SIZE_TRUMPET,
+			getwidth() - SIZE_TRUMPET, (4 * i + 1) * SIZE_TRUMPET, 30, 30);
+	}
+	settextcolor(BLACK);
+	settextstyle(30, 0, L"宋体");
+	outtextxy((getwidth() + 9 * SIZE_TRUMPET - textwidth(L"返回菜单")) / 2,
+		5 * SIZE_TRUMPET - textwidth(L"返回菜单") / 2, L"返回菜单");
+	if (oi)
+	{
+		outtextxy((getwidth() + 9 * SIZE_TRUMPET - textwidth(L"退出推演")) / 2,
+			9 * SIZE_TRUMPET - textwidth(L"退出推演") / 2, L"退出推演");
+	}
+	else
+	{
+		outtextxy((getwidth() + 9 * SIZE_TRUMPET - textwidth(L"进入推演")) / 2,
+			9 * SIZE_TRUMPET - textwidth(L"进入推演") / 2, L"进入推演");
+	}
+	settextstyle(40, 0, L"宋体");
+	EndBatchDraw();//关闭双缓冲绘图
 }
 
 void reset(Chess(*m)[COL], short x, short y)//重置一个二维数组的一个元素为空棋子
@@ -1644,7 +1685,7 @@ bool GameOver()
 					if (!(map_turn[turn][i + 1][j + 1].sur && map_turn[turn][i - 1][j - 1].type == routype))//右下
 					{
 						if (i == 1 && j == 4 || i == 0 && j == 3)
-						TestUpdate(i, j, i + 1, j + 1);
+							TestUpdate(i, j, i + 1, j + 1);
 						if (Check(map_test))
 						{
 							return 1;
@@ -1713,6 +1754,52 @@ bool GameOver()
 		}
 	}
 	return 0;
+}
+
+//void AppendFile(short t)//追加一轮t数据到文件
+//{
+//	FILE* pf = fopen("chinese_chess.txt", "ab");
+//	if (NULL == pf)
+//	{
+//		fprintf(stdout, "%s\n", strerror(errno));
+//		exit(1);
+//	}
+//	fwrite(&map_turn[t], memsize_map, 1, pf);//写入对局信息
+//	fclose(pf);
+//	pf = NULL;
+//}
+
+void AppendAllFile()//追加全部数据到文件
+{
+	FILE* pf = fopen("chinese_chess.txt", "ab");
+	if (NULL == pf)
+	{
+		fprintf(stdout, "%s\n", strerror(errno));
+		exit(1);
+	}
+	fwrite(&turn, 2, 1, pf);//先写总轮数
+	fwrite(map_turn, memsize_map, TURN, pf);//写入全部对局信息
+	fclose(pf);
+	pf = NULL;
+}
+
+long ReadFile()//读取最后游戏全部数据，返回总游戏数
+{
+	FILE* pf = fopen("chinese_chess.txt", "rb");
+	if (NULL == pf)
+	{
+		fprintf(stdout, "%s\n", strerror(errno));
+		return 0;
+	}
+	fseek(pf, 0, SEEK_END);
+	long i = ftell(pf) / (memsize_map * TURN + sizeof(short));
+	fseek(pf, (memsize_map * TURN + sizeof(short)) * -history, SEEK_END);
+	fread(&turn, sizeof(short), 1, pf);//读取一个总轮数
+	fread(map_turn, memsize_map, TURN, pf);//读取一个总轮信息
+	fseek(pf, 0, SEEK_SET);
+	fclose(pf);
+	pf = NULL;
+	return i;
 }
 
 void GameControl()//鼠标信息控制局内消息
@@ -1794,8 +1881,8 @@ void GameControl()//鼠标信息控制局内消息
 					GameUpdate(0);//初始化第一轮
 					during = 1;//改变鼠标判断逻辑为局内
 					BeginBatchDraw();//防止闪烁
-					BoardDraw();//画棋盘
-					PiecesDraw();//画棋子
+					BoardDraw(SIZE, FONT, 50, 2);//画棋盘
+					PiecesDraw(SIZE, FONT, ROU, 2);//画棋子
 					EndBatchDraw();//关闭双缓冲绘图
 				}
 				else if (msg.x > (getwidth() - TAB_W) / 2 && msg.x < (getwidth() + TAB_W) / 2
@@ -1805,15 +1892,21 @@ void GameControl()//鼠标信息控制局内消息
 					{
 						during = 1;//改变鼠标判断逻辑为局内
 						BeginBatchDraw();//防止闪烁
-						BoardDraw();//画棋盘
-						PiecesDraw();//画棋子
+						BoardDraw(SIZE, FONT, 50, 2);//画棋盘
+						PiecesDraw(SIZE, FONT, ROU, 2);//画棋子
 						EndBatchDraw();//关闭双缓冲绘图
 					}
 				}
 				else if (msg.x > (getwidth() - TAB_W) / 2 && msg.x < (getwidth() + TAB_W) / 2
-					&& msg.y > 6 * getheight() / 11 && msg.y < 6 * getheight() / 11 + TAB_H)
+					&& msg.y > 6 * getheight() / 11 && msg.y < 6 * getheight() / 11 + TAB_H)//历史战绩
 				{
-
+					long num = ReadFile();//读数据
+					if (!num)//判断是否为未读取到数据
+					{
+						break;
+					}
+					during = 2;//改变控制逻辑为历史记录
+					HistoryDraw();//绘制历史记录样式
 				}
 				else if (msg.x > (getwidth() - TAB_W) / 2 && msg.x < (getwidth() + TAB_W) / 2
 					&& msg.y > 8 * getheight() / 11 && msg.y < 8 * getheight() / 11 + TAB_H)//退出
@@ -1873,8 +1966,8 @@ void GameControl()//鼠标信息控制局内消息
 										//初始位置的棋子复制到末位置
 										reset(map_turn[turn], Begin[0], Begin[1]);//原始位置标为无棋子
 										BeginBatchDraw();//防止闪烁
-										BoardDraw();//画棋盘
-										PiecesDraw();//画棋子
+										BoardDraw(SIZE, FONT, 50, 2);//画棋盘
+										PiecesDraw(SIZE, FONT, ROU, 2);//画棋子
 										EndBatchDraw();//关闭双缓冲绘图
 										routype = !routype;//行动完成交换红黑的回合
 										Begin[0] = -1;//变为未选中棋子模式
@@ -1890,6 +1983,7 @@ void GameControl()//鼠标信息控制局内消息
 										{
 											OverDraw();//绘制对局结束
 											is = 0;//不能再使用继续游戏
+											AppendAllFile();//写入数据
 										}
 									}
 								}
@@ -1899,7 +1993,29 @@ void GameControl()//鼠标信息控制局内消息
 				}
 				break;
 			case 2:
-
+				if (msg.x > 10 * SIZE_TRUMPET && msg.x < getwidth() - SIZE_TRUMPET &&
+					msg.y > 3 * SIZE_TRUMPET && msg.y < 5 * SIZE_TRUMPET)//返回菜单
+				{
+					during = 0;//逻辑改为主菜单
+					oi = 0;//切换模式
+					MainMenu();//画主菜单
+				}
+				else if (msg.x > 10 * SIZE_TRUMPET && msg.x < getwidth() - SIZE_TRUMPET &&
+					msg.y > 7 * SIZE_TRUMPET && msg.y < 9 * SIZE_TRUMPET)//进入推演/退出推演
+				{
+					oi = !oi;//切换模式
+					if (oi)//进入推演
+					{
+						his = turn;//初对局
+						turn = 0;//重置局数
+						HistoryDraw();//绘制历史
+					}
+					else//退出推演
+					{
+						turn = his;//末对局
+						HistoryDraw();//绘制历史
+					}
+				}
 				break;
 			case 3:
 				if (msg.x > (getwidth() - TAB_W) / 2 && msg.x < (getwidth() + TAB_W) / 2
@@ -1907,8 +2023,8 @@ void GameControl()//鼠标信息控制局内消息
 				{
 					during = 1;//改变鼠标判断逻辑为局内
 					BeginBatchDraw();//防止闪烁
-					BoardDraw();//画棋盘
-					PiecesDraw();//画棋子
+					BoardDraw(SIZE, FONT, 50, 2);//画棋盘
+					PiecesDraw(SIZE, FONT, ROU, 2);//画棋子
 					EndBatchDraw();//关闭双缓冲绘图
 				}
 				else if (msg.x > (getwidth() - TAB_W) / 2 && msg.x < (getwidth() + TAB_W) / 2
@@ -1919,8 +2035,8 @@ void GameControl()//鼠标信息控制局内消息
 						GameUpdate(--turn - 1);//退回一轮并且改变打印的棋盘
 						during = 1;//改变鼠标判断逻辑为局内
 						BeginBatchDraw();//防止闪烁
-						BoardDraw();//画棋盘
-						PiecesDraw();//画棋子
+						BoardDraw(SIZE, FONT, 50, 2);//画棋盘
+						PiecesDraw(SIZE, FONT, ROU, 2);//画棋子
 						routype = !routype;//切换红黑方
 						EndBatchDraw();//关闭双缓冲绘图
 					}
@@ -1931,8 +2047,8 @@ void GameControl()//鼠标信息控制局内消息
 					now = !now;//反转视角
 					during = 1;//改变鼠标判断逻辑为局内
 					BeginBatchDraw();//防止闪烁
-					BoardDraw();//画棋盘
-					PiecesDraw();//画棋子
+					BoardDraw(SIZE, FONT, 50, 2);//画棋盘
+					PiecesDraw(SIZE, FONT, ROU, 2);//画棋子
 					EndBatchDraw();//关闭双缓冲绘图
 				}
 				else if (msg.x > (getwidth() - TAB_W) / 2 && msg.x < (getwidth() + TAB_W) / 2
@@ -1953,8 +2069,8 @@ void GameControl()//鼠标信息控制局内消息
 				break;
 			case 4:
 				during = 1;
-				BoardDraw();//画棋盘
-				PiecesDraw();//画棋子
+				BoardDraw(SIZE, FONT, 50, 2);//画棋盘
+				PiecesDraw(SIZE, FONT, ROU, 2);//画棋子
 				break;
 			default:
 				break;
@@ -1980,12 +2096,12 @@ void GameOverControl()//游戏结束时的鼠标信息控制
 				GameUpdate(0);//初始化第一轮
 				during = 1;//改变鼠标判断逻辑为局内
 				BeginBatchDraw();//防止闪烁
-				BoardDraw();//画棋盘
-				PiecesDraw();//画棋子
+				BoardDraw(SIZE, FONT, 50, 2);//画棋盘
+				PiecesDraw(SIZE, FONT, ROU, 2);//画棋子
 				EndBatchDraw();//关闭双缓冲绘图
 				Judge = 1;//改对局结束判定为未结束
 			}
-			if (6 * SIZE <= msg.x && getheight() * 6 / 11 <= msg.y && 8.5 * SIZE >=msg.x
+			if (6 * SIZE <= msg.x && getheight() * 6 / 11 <= msg.y && 8.5 * SIZE >= msg.x
 				&& getheight() * 6 / 11 + TAB_H >= msg.y)
 			{
 				during = 0;//逻辑改为主菜单
