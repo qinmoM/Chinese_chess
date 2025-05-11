@@ -41,6 +41,9 @@ MOUSEMSG msg;
 
 short Begin[] = { -1, -1 }, End[] = { -1, -1 };//记录起始和初始位置
 
+POINT point_left[] = { { 215, 567 }, { 140, 610 }, { 215, 653 } };//左三角
+POINT point_right[] = { { 485, 567 } ,{ 560, 610 }, { 485, 653 } };//右三角
+
 int memsize_map = sizeof(struct Chess) * ROW * COL;//记录一个map所占字节数
 bool routype = 1;//记录回合是红方还是黑方
 bool rouend = 1;//记录对局是否结束
@@ -52,6 +55,7 @@ bool is = 1;//记录是否可以继续游戏
 short history = 1;//记录读取的文件位置
 bool oi = 0;//判断打印退出还是进入,0:进入,1:退出
 short his;//关于历史记录的对局数
+short num;//读取到的局数
 
 const wchar_t* redlist[7] = { L"車", L"馬", L"相", L"仕", L"帅", L"炮", L"兵" };//红棋名称
 const wchar_t* blacklist[7] = { L"車", L"馬", L"象", L"士", L"将", L"炮", L"卒" };//黑棋名称
@@ -682,15 +686,22 @@ void OverDraw()//绘制对局结束
 		+ (TAB_H - textheight(tab[0])) / 2, tab[0]);//打印"新游戏"
 	outtextxy((14.5 * SIZE - textwidth(key[3])) / 2, getheight() * 6 / 11
 		+ (TAB_H - textheight(key[3])) / 2, key[3]);//打印"返回菜单"
-	EndBatchDraw();//关闭双缓冲绘图
-	if (routype)//分辨红胜利
+	settextstyle(getheight() / 11, 0, L"楷体");//对应的字体设置
+	if (!routype)//分辨红胜利
 	{
-
+		settextcolor(RED);
+		outtextxy((getwidth() - textwidth(L"红方胜利")) / 2, getheight() * 3 / 11
+			+ 45 - textheight(L"红方胜利") / 2, L"红方胜利");// 打印"红方胜利"
 	}
 	else//分辨黑胜利
 	{
-
+		settextcolor(BLACK);
+		outtextxy((getwidth() - textwidth(L"黑方胜利")) / 2, getheight() * 3 / 11
+			+ 45 - textheight(L"黑方胜利") / 2, L"黑方胜利");// 打印"黑方胜利"
 	}
+	EndBatchDraw();//关闭双缓冲绘图
+	settextcolor(BLACK);
+	settextstyle(FONT, 0, L"楷体");// 恢复字体设置
 }
 
 void FunctionKey()
@@ -745,7 +756,15 @@ void HistoryDraw()//绘制历史记录样式
 		outtextxy((getwidth() + 9 * SIZE_TRUMPET - textwidth(L"进入推演")) / 2,
 			9 * SIZE_TRUMPET - textwidth(L"进入推演") / 2, L"进入推演");
 	}
+	circle(190, 610, 85);//绘制左圆
+	circle(510, 610, 85);//绘制右圆
+	setfillcolor(DCOLOR);//设置填充颜色
+	setlinecolor(DCOLOR);//设置线条颜色
+	fillpolygon(point_left, 3);//绘制左三角
+	fillpolygon(point_right, 3);//绘制右三角
 	settextstyle(40, 0, L"宋体");
+	setfillcolor(COLOR);//恢复填充颜色
+	setlinecolor(BLACK);//恢复线条颜色
 	EndBatchDraw();//关闭双缓冲绘图
 }
 
@@ -798,7 +817,7 @@ bool Check(Chess(*ma)[COL])//检测己方老将是否被将军,被将军返回0
 						if (i == u)//检测是否和帅是同一排
 						{
 							for (j > t ? m = 1 : m = -1; j > t ? m < j - t : m > j - t;
-								j > u ? m++ : m--)//判断是否两点间是否有阻挡
+								j > t ? m++ : m--)//判断是否两点间是否有阻挡
 							{
 								if (ma[i][j - m].sur)
 								{
@@ -1900,8 +1919,7 @@ void GameControl()//鼠标信息控制局内消息
 				else if (msg.x > (getwidth() - TAB_W) / 2 && msg.x < (getwidth() + TAB_W) / 2
 					&& msg.y > 6 * getheight() / 11 && msg.y < 6 * getheight() / 11 + TAB_H)//历史战绩
 				{
-					long num = ReadFile();//读数据
-					if (!num)//判断是否为未读取到数据
+					if (!(num = ReadFile()))//判断是否为未读取到数据
 					{
 						break;
 					}
@@ -2014,6 +2032,46 @@ void GameControl()//鼠标信息控制局内消息
 					{
 						turn = his;//末对局
 						HistoryDraw();//绘制历史
+					}
+				}
+				else if (7225 >= (190 - msg.x) * (190 - msg.x) + (610 - msg.y) * (610 - msg.y))//左按钮
+				{
+					if (!oi)//未进入对局记录
+					{
+						if (history < num)//判断是否没有到头
+						{
+							history += 1;//跳到前一个对局
+							ReadFile();//读取前一个对局
+							HistoryDraw();//绘制历史记录样式
+						}
+					}
+					else//进入对局记录
+					{
+						if (0 < turn)//对局是否没到头
+						{
+							turn--;//局内对局减一
+							HistoryDraw();//绘制历史记录样式
+						}
+					}
+				}
+				else if (7225 >= (510 - msg.x) * (510 - msg.x) + (610 - msg.y) * (610 - msg.y))//右按钮
+				{
+					if (!oi)//未进入对局记录
+					{
+						if (history > 1)//判断是否没有到头
+						{
+							history -= 1;//跳到后一个对局
+							ReadFile();//读取后一个对局
+							HistoryDraw();//绘制历史记录样式
+						}
+					}
+					else//进入对局记录
+					{
+						if (his > turn)//对局是否没到头
+						{
+							turn++;//局内对局加一
+							HistoryDraw();//绘制历史记录样式
+						}
 					}
 				}
 				break;
