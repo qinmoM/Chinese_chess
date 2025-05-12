@@ -162,6 +162,19 @@ void GameInit()//初始化棋子等
 
 void GameUpdate(int t)//把改变后的t组写到t + 1组
 {
+	if (t + 1 > TURN)// 判断是否超出数组大小
+	{
+		// 将最后一轮写入第一轮
+		for (int i = 0; i < ROW; i++)
+		{
+			for (int j = 0; j < COL; j++)
+			{
+				map_turn[0][i][j] = map_turn[TURN - 1][i][j];
+			}
+		}
+		turn = 0;
+		t = 0;
+	}
 	for (int i = 0; i < ROW; i++)
 	{
 		for (int j = 0; j < COL; j++)
@@ -686,22 +699,15 @@ void OverDraw()//绘制对局结束
 		+ (TAB_H - textheight(tab[0])) / 2, tab[0]);//打印"新游戏"
 	outtextxy((14.5 * SIZE - textwidth(key[3])) / 2, getheight() * 6 / 11
 		+ (TAB_H - textheight(key[3])) / 2, key[3]);//打印"返回菜单"
-	settextstyle(getheight() / 11, 0, L"楷体");//对应的字体设置
-	if (!routype)//分辨红胜利
+	EndBatchDraw();//关闭双缓冲绘图
+	if (routype)//分辨红胜利
 	{
-		settextcolor(RED);
-		outtextxy((getwidth() - textwidth(L"红方胜利")) / 2, getheight() * 3 / 11
-			+ 45 - textheight(L"红方胜利") / 2, L"红方胜利");// 打印"红方胜利"
+
 	}
 	else//分辨黑胜利
 	{
-		settextcolor(BLACK);
-		outtextxy((getwidth() - textwidth(L"黑方胜利")) / 2, getheight() * 3 / 11
-			+ 45 - textheight(L"黑方胜利") / 2, L"黑方胜利");// 打印"黑方胜利"
+
 	}
-	EndBatchDraw();//关闭双缓冲绘图
-	settextcolor(BLACK);
-	settextstyle(FONT, 0, L"楷体");// 恢复字体设置
 }
 
 void FunctionKey()
@@ -1796,7 +1802,11 @@ void AppendAllFile()//追加全部数据到文件
 		fprintf(stdout, "%s\n", strerror(errno));
 		exit(1);
 	}
-	fwrite(&turn, 2, 1, pf);//先写总轮数
+	if (Judge)// 如果写入时胜负未分,说明是非独立对局,写入负数
+	{
+		turn = -turn;
+	}
+	fwrite(&turn, sizeof(short), 1, pf);//先写总轮数
 	fwrite(map_turn, memsize_map, TURN, pf);//写入全部对局信息
 	fclose(pf);
 	pf = NULL;
@@ -1811,6 +1821,7 @@ long ReadFile()//读取最后游戏全部数据，返回总游戏数
 		return 0;
 	}
 	fseek(pf, 0, SEEK_END);
+	// 如果后续要在前面加信息,只需要改这里的内容,因为数据的读取时从后往前的
 	long i = ftell(pf) / (memsize_map * TURN + sizeof(short));
 	fseek(pf, (memsize_map * TURN + sizeof(short)) * -history, SEEK_END);
 	fread(&turn, sizeof(short), 1, pf);//读取一个总轮数
@@ -1819,7 +1830,64 @@ long ReadFile()//读取最后游戏全部数据，返回总游戏数
 	fclose(pf);
 	pf = NULL;
 	return i;
+
 }
+//void UpdateNumber()// 更新非独立对局占用轮数
+//{
+//	int i = ReadType();
+//	FILE* pf = fopen("chinese_chess.txt", "wb");
+//	if (NULL == pf)
+//	{
+//		fprintf(stdout, "%s\n", strerror(errno));
+//		exit(1);
+//	}
+//	fseek(pf, 0, SEEK_SET);
+//	fwrite(&turn, 2, 1, pf);//先写总轮数
+//	fclose(pf);
+//	pf = NULL;
+//}
+//
+//int ReadType()// 读取第一位所记录的非独立对局占用轮数,如果没有文件创建一个并且写入0
+//{
+//	int i = 0;// 记录轮数
+//	FILE* pf = fopen("chinese_chess.txt", "rb");
+//	if (NULL == pf)// 判断是否存在文件
+//	{
+//		pf = fopen("chinese_chess.txt", "wb");// 不存在就创建
+//		if (NULL == pf)
+//		{
+//			fprintf(stdout, "%s\n", strerror(errno));
+//			exit(1);
+//		}
+//		i = 0;
+//		fwrite(&i, sizeof(int), 1, pf);// 写入0
+//		fclose(pf);
+//		pf = NULL;
+//		return 0;
+//	}
+//	fseek(pf, 0, SEEK_END);
+//	if (!ftell(pf))// 判断是否有文件但是没写入数据
+//	{
+//		fclose(pf);
+//		pf = NULL;
+//		pf = fopen("chinese_chess.txt", "rb+");// 写入
+//		if (NULL == pf)
+//		{
+//			fprintf(stdout, "%s\n", strerror(errno));
+//			exit(1);
+//		}
+//		fwrite(&i, sizeof(int), 1, pf);// 写入0
+//		fclose(pf);
+//		pf = NULL;
+//		return 0;
+//	}
+//	fseek(pf, 0, SEEK_SET);
+//	fread(&i, sizeof(int), 1, pf);// 读取非独立对局数
+//	fseek(pf, 0, SEEK_SET);
+//	fclose(pf);
+//	pf = NULL;
+//	return i;
+//}
 
 void GameControl()//鼠标信息控制局内消息
 {
