@@ -162,19 +162,6 @@ void GameInit()//初始化棋子等
 
 void GameUpdate(int t)//把改变后的t组写到t + 1组
 {
-	if (t + 1 > TURN)// 判断是否超出数组大小
-	{
-		// 将最后一轮写入第一轮
-		for (int i = 0; i < ROW; i++)
-		{
-			for (int j = 0; j < COL; j++)
-			{
-				map_turn[0][i][j] = map_turn[TURN - 1][i][j];
-			}
-		}
-		turn = 0;
-		t = 0;
-	}
 	for (int i = 0; i < ROW; i++)
 	{
 		for (int j = 0; j < COL; j++)
@@ -1794,19 +1781,41 @@ bool GameOver()
 //	pf = NULL;
 //}
 
+short GameRound()// 读取当前游戏的总场次（会打乱文件指针）
+{
+	short r = 0;
+	FILE* pf = fopen("chinese_chess.txt", "rb");
+	if (NULL == pf)
+	{
+		fprintf(stdout, "%s\n", strerror(errno));
+		exit(1);
+	}
+	fseek(pf, -(memsize_map * TURN + sizeof(short) * 2), SEEK_END);
+	fread(&r, sizeof(short), 1, pf);
+	fclose(pf);
+	pf = NULL;
+	return r;
+}
+
 void AppendAllFile()//追加全部数据到文件
 {
+	short r = 0;
+	if (Judge)// 判断当前是否完成对局
+	{
+		r = GameRound() + 1;// 计算当前游戏数
+	}
+	else
+	{
+		r = GameRound();// 计算当前游戏数
+	}
 	FILE* pf = fopen("chinese_chess.txt", "ab");
 	if (NULL == pf)
 	{
 		fprintf(stdout, "%s\n", strerror(errno));
 		exit(1);
 	}
-	if (Judge)// 如果写入时胜负未分,说明是非独立对局,写入负数
-	{
-		turn = -turn;
-	}
-	fwrite(&turn, sizeof(short), 1, pf);//先写总轮数
+	fwrite(&r, sizeof(short), 1, pf);//先写总游戏数
+	fwrite(&turn, sizeof(short), 1, pf);//写总轮数
 	fwrite(map_turn, memsize_map, TURN, pf);//写入全部对局信息
 	fclose(pf);
 	pf = NULL;
@@ -1814,6 +1823,7 @@ void AppendAllFile()//追加全部数据到文件
 
 long ReadFile()//读取最后游戏全部数据，返回总游戏数
 {
+	short r = 0;
 	FILE* pf = fopen("chinese_chess.txt", "rb");
 	if (NULL == pf)
 	{
@@ -1821,73 +1831,16 @@ long ReadFile()//读取最后游戏全部数据，返回总游戏数
 		return 0;
 	}
 	fseek(pf, 0, SEEK_END);
-	// 如果后续要在前面加信息,只需要改这里的内容,因为数据的读取时从后往前的
-	long i = ftell(pf) / (memsize_map * TURN + sizeof(short));
-	fseek(pf, (memsize_map * TURN + sizeof(short)) * -history, SEEK_END);
+	long i = ftell(pf) / (memsize_map * TURN + sizeof(short) * 2);
+	fseek(pf, (memsize_map * TURN + sizeof(short) * 2) * -history, SEEK_END);
+	fread(&r, sizeof(short), 1, pf);//读取一个游戏总轮数
 	fread(&turn, sizeof(short), 1, pf);//读取一个总轮数
 	fread(map_turn, memsize_map, TURN, pf);//读取一个总轮信息
 	fseek(pf, 0, SEEK_SET);
 	fclose(pf);
 	pf = NULL;
 	return i;
-
 }
-//void UpdateNumber()// 更新非独立对局占用轮数
-//{
-//	int i = ReadType();
-//	FILE* pf = fopen("chinese_chess.txt", "wb");
-//	if (NULL == pf)
-//	{
-//		fprintf(stdout, "%s\n", strerror(errno));
-//		exit(1);
-//	}
-//	fseek(pf, 0, SEEK_SET);
-//	fwrite(&turn, 2, 1, pf);//先写总轮数
-//	fclose(pf);
-//	pf = NULL;
-//}
-//
-//int ReadType()// 读取第一位所记录的非独立对局占用轮数,如果没有文件创建一个并且写入0
-//{
-//	int i = 0;// 记录轮数
-//	FILE* pf = fopen("chinese_chess.txt", "rb");
-//	if (NULL == pf)// 判断是否存在文件
-//	{
-//		pf = fopen("chinese_chess.txt", "wb");// 不存在就创建
-//		if (NULL == pf)
-//		{
-//			fprintf(stdout, "%s\n", strerror(errno));
-//			exit(1);
-//		}
-//		i = 0;
-//		fwrite(&i, sizeof(int), 1, pf);// 写入0
-//		fclose(pf);
-//		pf = NULL;
-//		return 0;
-//	}
-//	fseek(pf, 0, SEEK_END);
-//	if (!ftell(pf))// 判断是否有文件但是没写入数据
-//	{
-//		fclose(pf);
-//		pf = NULL;
-//		pf = fopen("chinese_chess.txt", "rb+");// 写入
-//		if (NULL == pf)
-//		{
-//			fprintf(stdout, "%s\n", strerror(errno));
-//			exit(1);
-//		}
-//		fwrite(&i, sizeof(int), 1, pf);// 写入0
-//		fclose(pf);
-//		pf = NULL;
-//		return 0;
-//	}
-//	fseek(pf, 0, SEEK_SET);
-//	fread(&i, sizeof(int), 1, pf);// 读取非独立对局数
-//	fseek(pf, 0, SEEK_SET);
-//	fclose(pf);
-//	pf = NULL;
-//	return i;
-//}
 
 void GameControl()//鼠标信息控制局内消息
 {
@@ -2063,7 +2016,29 @@ void GameControl()//鼠标信息控制局内消息
 										}
 										if (Judge)//如果未分胜负写到下一回合
 										{
-											GameUpdate(turn++);//当前棋子信息写到下一回合,为其行动做准备,并且回合加一
+											if (turn < TURN - 1)// 判断对局是否超过限制
+											{
+												GameUpdate(turn++);//当前棋子信息写到下一回合,为其行动做准备,回合加一
+											}
+											else if (TURN - 1 == turn)
+											{
+												// 追加全部数据
+												AppendAllFile();
+												// 将末数据写入开始时
+												for (int a = 0; a < ROW; a++)
+												{
+													for (int s = 0; s < COL; s++)
+													{
+														map_turn[0][a][s] = map_turn[turn][a][s];
+													}
+												}
+												// 更新对应变量
+												turn = 0;											}
+											else
+											{
+												printf("Turn is out of limit!");
+												exit(1);
+											}
 										}
 										else
 										{
@@ -2195,8 +2170,10 @@ void GameControl()//鼠标信息控制局内消息
 				break;
 			case 4:
 				during = 1;
+				BeginBatchDraw();//防止闪烁
 				BoardDraw(SIZE, FONT, 50, 2);//画棋盘
 				PiecesDraw(SIZE, FONT, ROU, 2);//画棋子
+				EndBatchDraw();//关闭双缓冲绘图
 				break;
 			default:
 				break;
