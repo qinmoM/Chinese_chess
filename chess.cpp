@@ -45,8 +45,7 @@ POINT point_left[] = { { 215, 567 }, { 140, 610 }, { 215, 653 } };//左三角
 POINT point_right[] = { { 485, 567 } ,{ 560, 610 }, { 485, 653 } };//右三角
 
 int memsize_map = sizeof(struct Chess) * ROW * COL;//记录一个map所占字节数
-bool routype = 1;//记录回合是红方还是黑方
-bool rouend = 1;//记录对局是否结束
+bool routype = 1;//记录回合是红方还是黑方//1:红 0:黑
 short during = 0;//鼠标判断逻辑,0主界面,1游戏中,2查看历史,3局内功能键,4提示送将,5输赢界面
 short turn = 1;//记录回合数的变量
 short Judge = 1;//记录对局是否没有结束,0为结束
@@ -55,7 +54,8 @@ bool is = 1;//记录是否可以继续游戏
 short history = 1;//记录读取的文件位置
 bool oi = 0;//判断打印退出还是进入,0:进入,1:退出
 short his;//关于历史记录的对局数
-short num;//读取到的局数
+short num_rou;//读取到的局数
+short wintype;//读取胜利方
 
 const wchar_t* redlist[7] = { L"車", L"馬", L"相", L"仕", L"帅", L"炮", L"兵" };//红棋名称
 const wchar_t* blacklist[7] = { L"車", L"馬", L"象", L"士", L"将", L"炮", L"卒" };//黑棋名称
@@ -1781,7 +1781,7 @@ bool GameOver()
 //	pf = NULL;
 //}
 
-short GameRound()// 读取当前游戏的总场次（会打乱文件指针）
+short GameRound()// 读取文件最后数据的总场次（会打乱文件指针）
 {
 	short r = 0;
 	FILE* pf = fopen("chinese_chess.txt", "rb");
@@ -1790,7 +1790,37 @@ short GameRound()// 读取当前游戏的总场次（会打乱文件指针）
 		fprintf(stdout, "%s\n", strerror(errno));
 		exit(1);
 	}
-	fseek(pf, -(memsize_map * TURN + sizeof(short) * 2), SEEK_END);
+	// 如果为第一局,直接返回0
+	fseek(pf, 0, SEEK_END);
+	if (0 == ftell(pf))
+	{
+		fclose(pf);
+		pf = NULL;
+		return (short)0;
+	}
+	fseek(pf, -(memsize_map * TURN + sizeof(short) * 4), SEEK_END);
+	fread(&r, sizeof(short), 1, pf);
+	fclose(pf);
+	pf = NULL;
+	return r;
+}
+
+short GameRoundType()// 读取文件最后的轮次的属性（会打乱文件指针）
+{
+	short r = 0;
+	FILE* pf = fopen("chinese_chess.txt", "rb");
+	if (NULL == pf)
+	{
+		fprintf(stdout, "%s\n", strerror(errno));
+		exit(1);
+	}
+	// 如果为第一局,直接返回2
+	fseek(pf, 0, SEEK_END);
+	if (0 == ftell(pf))
+	{
+		return 2;
+	}
+	fseek(pf, -(memsize_map * TURN + sizeof(short) * 3), SEEK_END);
 	fread(&r, sizeof(short), 1, pf);
 	fclose(pf);
 	pf = NULL;
@@ -1799,8 +1829,9 @@ short GameRound()// 读取当前游戏的总场次（会打乱文件指针）
 
 void AppendAllFile()//追加全部数据到文件
 {
-	short r = 0;
-	if (Judge)// 判断当前是否完成对局
+	short r = 0, e = 1, g = 0;
+	// 赋值r
+	if (2 == (g = GameRoundType()))// 判断当前是否完成对局
 	{
 		r = GameRound() + 1;// 计算当前游戏数
 	}
@@ -1808,38 +1839,66 @@ void AppendAllFile()//追加全部数据到文件
 	{
 		r = GameRound();// 计算当前游戏数
 	}
+	// 赋值e
+	if (Judge && 2 == g)// 判断是否为前局
+	{
+		e = 0;
+	}
+	if (!Judge)// 判断是否为尾局
+	{
+		e = 2;
+	}
 	FILE* pf = fopen("chinese_chess.txt", "ab");
 	if (NULL == pf)
 	{
 		fprintf(stdout, "%s\n", strerror(errno));
 		exit(1);
 	}
-	fwrite(&r, sizeof(short), 1, pf);//先写总游戏数
-	fwrite(&turn, sizeof(short), 1, pf);//写总轮数
+	fwrite(&r, sizeof(short), 1, pf);//先写总游戏排名//1开始
+	fwrite(&e, sizeof(short), 1, pf);//写此轮数的属性//0:先 1:中(最末尾) 2:尾(最优先)
+	fwrite(&turn, sizeof(short), 1, pf);// 写入总对局数
+	// 写入胜利方//-1:黑胜 0:胜负未分 1:红胜
+	if (!Judge)// !Judge 为是否胜负已分
+	{
+		if (routype)// 红方胜
+		{
+			fwrite(&routype, sizeof(short), 1, pf);// 写入红胜
+		}
+		else// 黑方胜
+		{
+			g = -1;// 辅助写入
+			fwrite(&g, sizeof(short), 1, pf);// 写入黑胜
+		}
+	}
+	else// 胜负未分
+	{
+		g = 0;// 辅助写入
+		fwrite(&g, sizeof(short), 1, pf);// 写入胜负未分
+	}
 	fwrite(map_turn, memsize_map, TURN, pf);//写入全部对局信息
 	fclose(pf);
 	pf = NULL;
 }
 
-long ReadFile()//读取最后游戏全部数据，返回总游戏数
+void ReadFile()//读取最后游戏全部数据
 {
-	short r = 0;
+	short r = 0, w = 0;
 	FILE* pf = fopen("chinese_chess.txt", "rb");
 	if (NULL == pf)
 	{
 		fprintf(stdout, "%s\n", strerror(errno));
-		return 0;
+		exit(1);
 	}
 	fseek(pf, 0, SEEK_END);
-	long i = ftell(pf) / (memsize_map * TURN + sizeof(short) * 2);
-	fseek(pf, (memsize_map * TURN + sizeof(short) * 2) * -history, SEEK_END);
-	fread(&r, sizeof(short), 1, pf);//读取一个游戏总轮数
+	fseek(pf, (memsize_map * TURN + sizeof(short) * 4) * -history, SEEK_END);
+	fread(&r, sizeof(short), 1, pf);//读取一个游戏对局数
+	fread(&w, sizeof(short), 1, pf);// 占位
 	fread(&turn, sizeof(short), 1, pf);//读取一个总轮数
+	fread(&wintype, sizeof(short), 1, pf);// 读取胜利状态
 	fread(map_turn, memsize_map, TURN, pf);//读取一个总轮信息
 	fseek(pf, 0, SEEK_SET);
 	fclose(pf);
 	pf = NULL;
-	return i;
 }
 
 void GameControl()//鼠标信息控制局内消息
@@ -1903,7 +1962,7 @@ void GameControl()//鼠标信息控制局内消息
 		case WM_LBUTTONUP:
 			if (!during)//如果在主菜单
 			{
-				for (int i = 0; i < 4; i++)//绘制选项卡
+				for (int i = 0; i < 4; i++)// 松开鼠标时覆盖选项卡的颜色,营造出高亮的效果
 				{
 					roundrect((getwidth() - TAB_W) / 2, getheight() * (i + 1) * 2 / 11, (getwidth() + TAB_W) / 2,
 						getheight() * (i + 1) * 2 / 11 + TAB_H, 30, 60);
@@ -1915,6 +1974,11 @@ void GameControl()//鼠标信息控制局内消息
 				if (msg.x > (getwidth() - TAB_W) / 2 && msg.x < (getwidth() + TAB_W) / 2
 					&& msg.y > 2 * getheight() / 11 && msg.y < 2 * getheight() / 11 + TAB_H)//新游戏
 				{
+					if (is)// 如果继续游戏可以使用,说明上局未结束,此时开始新游戏之前需要写入数据
+					{
+						Judge = 0;// 赋值Judge为0,防止影响后续存入信息
+						AppendAllFile();
+					}
 					is = 1;//可以使用继续游戏
 					routype = 1;//切换红方
 					turn = 1;//重置历史记录
@@ -1940,16 +2004,18 @@ void GameControl()//鼠标信息控制局内消息
 				else if (msg.x > (getwidth() - TAB_W) / 2 && msg.x < (getwidth() + TAB_W) / 2
 					&& msg.y > 6 * getheight() / 11 && msg.y < 6 * getheight() / 11 + TAB_H)//历史战绩
 				{
-					if (!(num = ReadFile()))//判断是否为未读取到数据
-					{
-						break;
-					}
+					num_rou = GameRound();// 赋值num_rou
 					during = 2;//改变控制逻辑为历史记录
 					HistoryDraw();//绘制历史记录样式
 				}
 				else if (msg.x > (getwidth() - TAB_W) / 2 && msg.x < (getwidth() + TAB_W) / 2
 					&& msg.y > 8 * getheight() / 11 && msg.y < 8 * getheight() / 11 + TAB_H)//退出
 				{
+					if (is)// 如果继续游戏可以使用,说明上局未结束,此时开始新游戏之前需要写入数据
+					{
+						Judge = 0;// 赋值Judge为0,防止影响后续存入信息
+						AppendAllFile();
+					}
 					exit(0);
 				}
 				else
@@ -2081,7 +2147,7 @@ void GameControl()//鼠标信息控制局内消息
 				{
 					if (!oi)//未进入对局记录
 					{
-						if (history < num)//判断是否没有到头
+						if (history < num_rou)//判断是否没有到头
 						{
 							history += 1;//跳到前一个对局
 							ReadFile();//读取前一个对局
