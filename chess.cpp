@@ -686,15 +686,22 @@ void OverDraw()//绘制对局结束
 		+ (TAB_H - textheight(tab[0])) / 2, tab[0]);//打印"新游戏"
 	outtextxy((14.5 * SIZE - textwidth(key[3])) / 2, getheight() * 6 / 11
 		+ (TAB_H - textheight(key[3])) / 2, key[3]);//打印"返回菜单"
-	EndBatchDraw();//关闭双缓冲绘图
-	if (routype)//分辨红胜利
+	settextstyle(getheight() / 11, 0, L"楷体");//对应的字体设置
+	if (!routype)//分辨红胜利
 	{
-
+		settextcolor(RED);
+		outtextxy((getwidth() - textwidth(L"红方胜利")) / 2, getheight() * 3 / 11
+			+ 45 - textheight(L"红方胜利") / 2, L"红方胜利");// 打印"红方胜利"
 	}
 	else//分辨黑胜利
 	{
-
+		settextcolor(BLACK);
+		outtextxy((getwidth() - textwidth(L"黑方胜利")) / 2, getheight() * 3 / 11
+			+ 45 - textheight(L"黑方胜利") / 2, L"黑方胜利");// 打印"黑方胜利"
 	}
+	EndBatchDraw();//关闭双缓冲绘图
+	settextcolor(BLACK);
+	settextstyle(FONT, 0, L"楷体");// 恢复字体设置
 }
 
 void FunctionKey()
