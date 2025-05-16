@@ -52,9 +52,9 @@ short Judge = 1;//记录对局是否没有结束,0为结束
 bool now = 1;//记录执棋所在方,0:黑方1:红方
 bool is = 1;//记录是否可以继续游戏
 short history = 1;//记录读取的文件位置
-bool oi = 0;//判断打印退出还是进入,0:进入,1:退出
+bool oi = 0;//判断打印退出还是进入,0:打印进入,1:打印退出
 short his;//关于历史记录的对局数
-short num_rou;//读取到的局数
+short num_rou = -1;//读取到的局数
 short wintype;//读取胜利方
 
 const wchar_t* redlist[7] = { L"車", L"馬", L"相", L"仕", L"帅", L"炮", L"兵" };//红棋名称
@@ -1775,20 +1775,7 @@ bool GameOver()
 	return 0;
 }
 
-//void AppendFile(short t)//追加一轮t数据到文件
-//{
-//	FILE* pf = fopen("chinese_chess.txt", "ab");
-//	if (NULL == pf)
-//	{
-//		fprintf(stdout, "%s\n", strerror(errno));
-//		exit(1);
-//	}
-//	fwrite(&map_turn[t], memsize_map, 1, pf);//写入对局信息
-//	fclose(pf);
-//	pf = NULL;
-//}
-
-short GameRound()// 读取文件最后数据的总场次（会打乱文件指针）
+short GameRound()// 读取返回文件最后数据的总场次（会打乱文件指针）
 {
 	short r = 0;
 	FILE* pf = fopen("chinese_chess.txt", "rb");
@@ -1812,7 +1799,7 @@ short GameRound()// 读取文件最后数据的总场次（会打乱文件指针）
 	return r;
 }
 
-short GameRoundType()// 读取文件最后的轮次的属性（会打乱文件指针）
+short GameRoundType(bool h)// 读取倒数第history的轮次的属性// 0为最后一次的
 {
 	short r = 0;
 	FILE* pf = fopen("chinese_chess.txt", "rb");
@@ -1825,9 +1812,18 @@ short GameRoundType()// 读取文件最后的轮次的属性（会打乱文件指针）
 	fseek(pf, 0, SEEK_END);
 	if (0 == ftell(pf))
 	{
+		fclose(pf);
+		pf = NULL;
 		return 2;
 	}
-	fseek(pf, -(memsize_map * TURN + sizeof(short) * 3), SEEK_END);
+	if (!h)
+	{
+		fseek(pf, -(memsize_map * TURN + sizeof(short) * 3), SEEK_END);
+	}
+	else
+	{
+		fseek(pf, -history * (memsize_map * TURN + sizeof(short) * 3), SEEK_END);
+	}
 	fread(&r, sizeof(short), 1, pf);
 	fclose(pf);
 	pf = NULL;
@@ -1838,7 +1834,7 @@ void AppendAllFile()//追加全部数据到文件
 {
 	short r = 0, e = 1, g = 0;
 	// 赋值r
-	if (2 == (g = GameRoundType()))// 判断当前是否完成对局
+	if (2 == (g = GameRoundType(false)))// 判断当前是否完成对局
 	{
 		r = GameRound() + 1;// 计算当前游戏数
 	}
@@ -1863,7 +1859,7 @@ void AppendAllFile()//追加全部数据到文件
 	}
 	fwrite(&r, sizeof(short), 1, pf);//先写总游戏排名//1开始
 	fwrite(&e, sizeof(short), 1, pf);//写此轮数的属性//0:先 1:中(最末尾) 2:尾(最优先)
-	fwrite(&turn, sizeof(short), 1, pf);// 写入总对局数
+	fwrite(&turn, sizeof(short), 1, pf);// 写入总回合数
 	// 写入胜利方//-1:黑胜 0:胜负未分 1:红胜
 	if (!Judge)// !Judge 为是否胜负已分
 	{
@@ -1887,7 +1883,7 @@ void AppendAllFile()//追加全部数据到文件
 	pf = NULL;
 }
 
-void ReadFile()//读取最后游戏全部数据
+short ReadFile()// 读取当前游戏全部数据// 并且返回当前游戏轮数的对局数
 {
 	short r = 0, w = 0;
 	FILE* pf = fopen("chinese_chess.txt", "rb");
@@ -1906,6 +1902,7 @@ void ReadFile()//读取最后游戏全部数据
 	fseek(pf, 0, SEEK_SET);
 	fclose(pf);
 	pf = NULL;
+	return r;
 }
 
 void GameControl()//鼠标信息控制局内消息
@@ -2011,7 +2008,18 @@ void GameControl()//鼠标信息控制局内消息
 				else if (msg.x > (getwidth() - TAB_W) / 2 && msg.x < (getwidth() + TAB_W) / 2
 					&& msg.y > 6 * getheight() / 11 && msg.y < 6 * getheight() / 11 + TAB_H)//历史战绩
 				{
-					num_rou = GameRound();// 赋值num_rou
+					// 计算游戏总轮数
+					FILE* pf = fopen("chinese_chess.txt", "rb");
+					if (NULL == pf)
+					{
+						fprintf(stdout, "%s\n", strerror(errno));
+						exit(1);
+					}
+					fseek(pf, 0, SEEK_END);
+					num_rou = ftell(pf) / (memsize_map + 4 * sizeof(short));// 赋值num_rou
+					fclose(pf);
+					pf = NULL;
+					ReadFile();// 读取最后的游戏信息
 					during = 2;//改变控制逻辑为历史记录
 					HistoryDraw();//绘制历史记录样式
 				}
@@ -2106,7 +2114,8 @@ void GameControl()//鼠标信息控制局内消息
 													}
 												}
 												// 更新对应变量
-												turn = 0;											}
+												turn = 0;
+											}
 											else
 											{
 												printf("Turn is out of limit!");
@@ -2132,19 +2141,20 @@ void GameControl()//鼠标信息控制局内消息
 				{
 					during = 0;//逻辑改为主菜单
 					oi = 0;//切换模式
+					num_rou = -1;// 后续判断
 					MainMenu();//画主菜单
 				}
 				else if (msg.x > 10 * SIZE_TRUMPET && msg.x < getwidth() - SIZE_TRUMPET &&
 					msg.y > 7 * SIZE_TRUMPET && msg.y < 9 * SIZE_TRUMPET)//进入推演/退出推演
 				{
-					oi = !oi;//切换模式
-					if (oi)//进入推演
+					oi = !oi;// 切换模式// 初始为0
+					if (oi)// 打印为进入推演
 					{
 						his = turn;//初对局
 						turn = 0;//重置局数
 						HistoryDraw();//绘制历史
 					}
-					else//退出推演
+					else// 打印为退出推演
 					{
 						turn = his;//末对局
 						HistoryDraw();//绘制历史
@@ -2154,10 +2164,18 @@ void GameControl()//鼠标信息控制局内消息
 				{
 					if (!oi)//未进入对局记录
 					{
-						if (history < num_rou)//判断是否没有到头
+						short gr1 = ReadFile();//读取当前对局数
+						if (1 < gr1)
 						{
-							history += 1;//跳到前一个对局
-							ReadFile();//读取前一个对局
+							while (true)// 一直向前找
+							{
+								history += 1;// 跳到前一个游戏总轮数
+								short gr2 = ReadFile();// 读取前一个对局数
+								if (gr1 == gr2 + 1)
+								{
+									break;
+								}
+							}
 							HistoryDraw();//绘制历史记录样式
 						}
 					}
@@ -2174,10 +2192,18 @@ void GameControl()//鼠标信息控制局内消息
 				{
 					if (!oi)//未进入对局记录
 					{
-						if (history > 1)//判断是否没有到头
+						short gr1 = ReadFile();//读取当前对局数
+						if (1 < history)// 如果不是最后一个
 						{
-							history -= 1;//跳到后一个对局
-							ReadFile();//读取后一个对局
+							while (true)// 一直向后找
+							{
+								history -= 1;// 跳到后一个游戏总轮数
+								short gr2 = ReadFile();// 读取后一个对局数
+								if (gr1 == gr2 - 1 && 2 == GameRoundType(true))
+								{
+									break;
+								}
+							}
 							HistoryDraw();//绘制历史记录样式
 						}
 					}
@@ -2204,15 +2230,20 @@ void GameControl()//鼠标信息控制局内消息
 				else if (msg.x > (getwidth() - TAB_W) / 2 && msg.x < (getwidth() + TAB_W) / 2
 					&& msg.y > 4 * getheight() / 11 && msg.y < 4 * getheight() / 11 + TAB_H)//悔棋
 				{
-					if (turn > 1)//判断是否不为第一局
+					if (turn > 1)// 判断是否不为第一局// 因为判断时已经到了下一轮,所以从2开始
 					{
 						GameUpdate(--turn - 1);//退回一轮并且改变打印的棋盘
 						during = 1;//改变鼠标判断逻辑为局内
 						BeginBatchDraw();//防止闪烁
 						BoardDraw(SIZE, FONT, 50, 2);//画棋盘
 						PiecesDraw(SIZE, FONT, ROU, 2);//画棋子
-						routype = !routype;//切换红黑方
 						EndBatchDraw();//关闭双缓冲绘图
+						routype = !routype;//切换红黑方
+					}
+					else
+					{
+						outtextxy(getwidth() - textwidth(L"超过额定回退步数!"),
+							getheight() - textheight(L"超过额定回退步数!"), L"超过额定回退步数!");
 					}
 				}
 				else if (msg.x > (getwidth() - TAB_W) / 2 && msg.x < (getwidth() + TAB_W) / 2
