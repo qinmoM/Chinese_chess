@@ -53,7 +53,7 @@ bool now = 1;//记录执棋所在方,0:黑方1:红方
 bool is = 1;//记录是否可以继续游戏
 short history = 1;//记录读取的文件位置
 bool oi = 0;//判断打印退出还是进入,0:打印进入,1:打印退出
-short his;//关于历史记录的对局数
+short his;//临时记录的对局数
 short num_rou = -1;//读取到的局数
 short wintype;//读取胜利方
 
@@ -1792,14 +1792,14 @@ short GameRound()// 读取返回文件最后数据的总场次（会打乱文件指针）
 		pf = NULL;
 		return (short)0;
 	}
-	fseek(pf, -(memsize_map * TURN + sizeof(short) * 4), SEEK_END);
+	fseek(pf, -1 * (memsize_map * TURN + sizeof(short) * 4), SEEK_END);
 	fread(&r, sizeof(short), 1, pf);
 	fclose(pf);
 	pf = NULL;
 	return r;
 }
 
-short GameRoundType(bool h)// 读取倒数第history的轮次的属性// 0为最后一次的
+short GameRoundType(bool h)// 读取倒数第history的轮次的属性// 0为最后一次的,1为对应
 {
 	short r = 0;
 	FILE* pf = fopen("chinese_chess.txt", "rb");
@@ -1818,7 +1818,7 @@ short GameRoundType(bool h)// 读取倒数第history的轮次的属性// 0为最后一次的
 	}
 	if (!h)
 	{
-		fseek(pf, -(memsize_map * TURN + sizeof(short) * 3), SEEK_END);
+		fseek(pf, -1 * (memsize_map * TURN + sizeof(short) * 3), SEEK_END);
 	}
 	else
 	{
@@ -2150,13 +2150,21 @@ void GameControl()//鼠标信息控制局内消息
 					oi = !oi;// 切换模式// 初始为0
 					if (oi)// 打印为进入推演
 					{
-						his = turn;//初对局
-						turn = 0;//重置局数
+						his = history;// 记录末尾位置的history
+						while (true)// 向前找到当前的第一个对局
+						{
+							history++;
+							if (history > num_rou || 2 == GameRoundType(true))// 到头或者上一场为结束
+							{
+								history--;
+								break;
+							}
+						}
 						HistoryDraw();//绘制历史
 					}
 					else// 打印为退出推演
 					{
-						turn = his;//末对局
+						history = his;// 切换到末尾
 						HistoryDraw();//绘制历史
 					}
 				}
